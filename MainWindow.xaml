@@ -1,0 +1,663 @@
+﻿<Window x:Class="DshStudio.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DshStudio"
+        Title="OC Startup" Icon="icon.ico" Height="700" Width="1060" MinHeight="560" MinWidth="900"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
+        Background="{StaticResource Bg}" UseLayoutRounding="True" SnapsToDevicePixels="True">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0"
+                      CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolVis"/>
+
+        <!-- Карточка модели: рамку и заливку выбора рисует контейнер -->
+        <Style x:Key="CardItem" TargetType="ListBoxItem">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="{StaticResource Surface}"
+                                BorderBrush="{StaticResource Edge}" BorderThickness="1"
+                                CornerRadius="10" Padding="14,11">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1B1F28"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#181C25"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PlainItem" TargetType="ListBoxItem">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="Transparent" Padding="12,6" CornerRadius="5">
+                            <ContentPresenter TextElement.Foreground="{StaticResource InkSoft}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1B212B"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#2A1D13"/>
+                                <Setter TargetName="Bd" Property="TextElement.Foreground" Value="{StaticResource Accent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TagItem" TargetType="ListBoxItem">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="#1B2029" CornerRadius="5"
+                                BorderBrush="{StaticResource Edge}" BorderThickness="1" Padding="8,3">
+                            <ContentPresenter TextElement.Foreground="{StaticResource InkSoft}"
+                                              TextElement.FontSize="11.5"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#242B38"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A2718"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                                <Setter TargetName="Bd" Property="TextElement.Foreground" Value="{StaticResource Accent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate DataType="{x:Type local:ParamRow}">
+            <Grid Margin="0,0,0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="116"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"
+                           Foreground="{StaticResource Ink}"/>
+                <TextBlock Grid.Column="1" Text="{Binding Note}" VerticalAlignment="Center" Margin="0,0,10,0"
+                           Foreground="{StaticResource InkFaint}" FontSize="11"/>
+                <TextBox Grid.Column="2" Padding="8,3" Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"/>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Строка с тумблером: та же высота и то же место, что и у поля ввода,
+             иначе строка выбивается из общего шага -->
+        <DataTemplate DataType="{x:Type local:FlagRow}">
+            <Grid Margin="0,0,0,3" MinHeight="25">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="116"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"
+                           Foreground="{StaticResource Ink}"/>
+                <TextBlock Grid.Column="1" Text="{Binding Note}" VerticalAlignment="Center" Margin="0,0,10,0"
+                           Foreground="{StaticResource InkFaint}" FontSize="11"/>
+                <CheckBox Grid.Column="2" Style="{StaticResource Switch}" IsChecked="{Binding Value}"
+                          VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0"/>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type local:StepCard}">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Opacity="{Binding Dim}">
+                <Path Data="{Binding Icon}" Style="{StaticResource IconGlyph}"
+                      Stroke="{StaticResource Accent}" StrokeThickness="1.4"/>
+                <TextBlock Text="{Binding Caption}" Margin="10,0,0,0"
+                           Foreground="{StaticResource Ink}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type local:SessionRow}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                <TextBlock Grid.Column="1" Text="{Binding When}" Margin="10,0,0,0" FontSize="11"
+                           Foreground="{StaticResource InkFaint}"/>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type local:UpdateRow}">
+            <Border Background="#11141A" CornerRadius="8" Padding="12,9" Margin="0,0,0,8"
+                    BorderBrush="{StaticResource EdgeSoft}" BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Line}" FontSize="11.5" Margin="0,3,0,0"
+                                   Foreground="{StaticResource InkSoft}"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Style="{StaticResource PrimaryButton}" Content="{Binding ActionText}"
+                            Padding="12,5" Margin="10,0,0,0" VerticalAlignment="Center" Tag="{Binding}"
+                            Click="Update_Click"
+                            Visibility="{Binding Waiting, Converter={StaticResource BoolVis}}"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type local:ModelCard}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Short}" FontSize="13.5" FontWeight="SemiBold"
+                               Foreground="{StaticResource Ink}" VerticalAlignment="Center">
+                        <!-- Подвинуть название в карточке: Y отрицательный - вверх,
+                             положительный - вниз. Сдвиг только при отрисовке,
+                             разметку не трогает. -->
+                        <TextBlock.RenderTransform>
+                            <TranslateTransform Y="-1"/>
+                        </TextBlock.RenderTransform>
+                    </TextBlock>
+                    <Border Style="{StaticResource Chip}" Margin="8,0,0,0" Background="#2A1D13"
+                            BorderBrush="#4A2E1A">
+                        <TextBlock Text="{Binding Tag}" FontSize="10.5" Foreground="#FFB27A"/>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,10,0"
+                            Visibility="{Binding Idle, Converter={StaticResource BoolVis}}">
+                    <Border Style="{StaticResource Chip}">
+                        <TextBlock Text="{Binding Size}" FontSize="10.5" Foreground="{StaticResource InkSoft}"/>
+                    </Border>
+                    <Border Style="{StaticResource Chip}">
+                        <TextBlock Text="{Binding Params}" FontSize="10.5" Foreground="{StaticResource InkSoft}"/>
+                    </Border>
+                    <Border Style="{StaticResource Chip}">
+                        <TextBlock Text="{Binding Quant}" FontSize="10.5" Foreground="{StaticResource InkSoft}"/>
+                    </Border>
+                </StackPanel>
+
+                <Grid Grid.Column="1" Margin="12,0,10,0" VerticalAlignment="Center"
+                      Visibility="{Binding Busy, Converter={StaticResource BoolVis}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ProgressBar Grid.Column="0" Value="{Binding Progress}" Maximum="100" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding Status}" FontSize="10.5" Margin="10,0,0,0"
+                               Foreground="{StaticResource InkSoft}" VerticalAlignment="Center"/>
+                </Grid>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource CardButton}" Tag="{Binding}" Click="Pause_Click"
+                            ToolTip="{DynamicResource L_Pause}" Visibility="{Binding Running, Converter={StaticResource BoolVis}}">
+                        <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoPause}" StrokeThickness="2.6"/>
+                    </Button>
+                    <Button Style="{StaticResource CardButton}" Tag="{Binding}" Click="Resume_Click"
+                            ToolTip="{DynamicResource L_Resume}" Visibility="{Binding Paused, Converter={StaticResource BoolVis}}">
+                        <Path Style="{StaticResource IconGlyphSolid}" Data="{StaticResource IcoPlay}"/>
+                    </Button>
+                    <Button Style="{StaticResource CardButton}" Tag="{Binding}" Click="CancelPull_Click"
+                            ToolTip="{DynamicResource L_CancelDownload}" Visibility="{Binding Busy, Converter={StaticResource BoolVis}}">
+                        <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoClose}"/>
+                    </Button>
+
+                    <Button Style="{StaticResource CardButton}" Tag="{Binding}" Click="ModelSettings_Click"
+                            ToolTip="{DynamicResource L_ModelSettings}"
+                            Visibility="{Binding Idle, Converter={StaticResource BoolVis}}">
+                        <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoGear}"/>
+                    </Button>
+                    <Button Style="{StaticResource DeleteButton}" Tag="{Binding}" Click="Delete_Click"
+                            ToolTip="{DynamicResource L_DeleteModel}"
+                            Visibility="{Binding Idle, Converter={StaticResource BoolVis}}"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Border x:Name="Root" Background="{StaticResource Bg}" BorderBrush="{StaticResource Edge}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="37"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Своя строка заголовка: системная светлая сюда не пускается -->
+            <Border Grid.Row="0" Background="#12151B" BorderBrush="{StaticResource EdgeSoft}"
+                    BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseDown">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                        <TextBlock Text="OC Startup" FontSize="12.5" FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                        <Rectangle Width="1" Height="14" Fill="{StaticResource Edge}" Margin="14,0"/>
+                        <Ellipse x:Name="OllamaDot" Width="6" Height="6" Fill="{StaticResource Bad}"
+                                 VerticalAlignment="Center"/>
+                        <TextBlock x:Name="OllamaText" Text="Ollama" FontSize="11" Margin="7,0,0,0"
+                                   Foreground="{StaticResource InkSoft}" VerticalAlignment="Center"/>
+                        <Button x:Name="StartOllamaBtn" Style="{StaticResource MiniAccentButton}"
+                                ToolTip="{DynamicResource L_StartOllama}" Click="StartOllama_Click" Margin="8,0,0,0"
+                                Visibility="Collapsed">
+                            <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoPower}"
+                                  Stroke="#0B1A12" StrokeThickness="1.6"/>
+                        </Button>
+                        <TextBlock x:Name="HarnessText" Text="" FontSize="11" Margin="14,0,0,0"
+                                   Foreground="{StaticResource InkFaint}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Stretch">
+                        <Button Style="{StaticResource CaptionButton}" ToolTip="{DynamicResource L_Language}"
+                                Click="OpenLang_Click">
+                            <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoGlobe}"/>
+                        </Button>
+                        <Button Style="{StaticResource CaptionButton}" ToolTip="{DynamicResource L_Updates}"
+                                Click="OpenUpdates_Click">
+                            <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoUpdate}"/>
+                        </Button>
+                        <Button Style="{StaticResource CaptionButton}" ToolTip="{DynamicResource L_Log}" Click="ToggleLog_Click">
+                            <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoLog}"/>
+                        </Button>
+                        <Button Style="{StaticResource CaptionButton}" ToolTip="{DynamicResource L_InstallFolder}"
+                                Click="OpenSetup_Click" Margin="0,0,8,0">
+                            <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoFolder}"/>
+                        </Button>
+                        <Button Style="{StaticResource CaptionButton}" Click="Minimize_Click">
+                            <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoMinimize}"/>
+                        </Button>
+                        <Button Style="{StaticResource CaptionButton}" Click="Maximize_Click">
+                            <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoMaximize}"/>
+                        </Button>
+                        <Button Style="{StaticResource CloseButton}" Click="Close_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" Margin="16,12,16,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="32"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="320"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Row="0" Grid.Column="0" Margin="0,0,14,0">
+                    <TextBlock Text="{DynamicResource L_Models}" Style="{StaticResource TitleText}"/>
+                    <Button Style="{StaticResource GhostButton}" Click="OpenCatalog_Click" Padding="12,7"
+                            HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoPlus}"
+                                  Stroke="{StaticResource Ink}"/>
+                            <TextBlock Text="{DynamicResource L_Catalog}" Margin="7,0,0,0" Foreground="{StaticResource Ink}"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{DynamicResource L_Run}" Style="{StaticResource TitleText}"/>
+
+                <Grid Grid.Row="1" Grid.Column="0" Margin="0,10,14,0">
+                    <ListBox x:Name="ModelList" Background="Transparent" BorderThickness="0"
+                             ItemContainerStyle="{StaticResource CardItem}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             HorizontalContentAlignment="Stretch"
+                             SelectionChanged="ModelList_SelectionChanged"/>
+                    <StackPanel x:Name="EmptyHint" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="Collapsed">
+                        <Path Data="{StaticResource IcoCube}" Stroke="{StaticResource InkFaint}" StrokeThickness="1"
+                              Stretch="Uniform" Width="40" Height="40" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource L_NoModels}" Margin="0,12,0,0" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource InkSoft}"/>
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="1" Grid.Column="1" Margin="0,10,0,0" VerticalAlignment="Top"
+                        Background="{StaticResource Surface}" CornerRadius="10"
+                        BorderBrush="{StaticResource Edge}" BorderThickness="1" Padding="14">
+                    <StackPanel>
+                        <TextBlock x:Name="RunModelText" Text="{DynamicResource L_NoModelSelected}" FontSize="14"
+                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="RunContextText" Text="" Style="{StaticResource MutedText}"
+                                   Margin="0,4,0,0" Foreground="{StaticResource InkFaint}"/>
+
+                        <TextBlock Text="{DynamicResource L_ProjectFolder}" FontSize="11.5" Margin="0,14,0,6"
+                                   Foreground="{StaticResource InkSoft}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="WorkBox" Grid.Column="0" Padding="8,4"/>
+                            <Button Grid.Column="1" Style="{StaticResource CardButton}" Margin="6,0,0,0"
+                                    Click="PickWorkspace_Click" ToolTip="{DynamicResource L_PickProjectFolder}">
+                                <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoFolder}"/>
+                            </Button>
+                        </Grid>
+
+                        <TextBlock Text="{DynamicResource L_Session}" FontSize="11.5" Margin="0,12,0,6"
+                                   Foreground="{StaticResource InkSoft}"/>
+                        <ListBox x:Name="SessionList" MaxHeight="146" Background="#11141A"
+                                 BorderBrush="{StaticResource Edge}" BorderThickness="1"
+                                 ItemContainerStyle="{StaticResource PlainItem}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 HorizontalContentAlignment="Stretch"/>
+
+                        <Button x:Name="StartBtn" Style="{StaticResource PrimaryButton}" Margin="0,12,0,0"
+                                HorizontalAlignment="Stretch" Click="Start_Click">
+                            <TextBlock Text="{DynamicResource L_Start}" Foreground="#1A1206" FontWeight="SemiBold"/>
+                        </Button>
+                        <Button x:Name="StopBtn" Style="{StaticResource GhostButton}" Margin="0,14,0,0"
+                                HorizontalAlignment="Stretch" Click="Stop_Click" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Style="{StaticResource IconGlyphSolid}" Data="{StaticResource IcoStop}"/>
+                                <TextBlock Text="{DynamicResource L_CloseApp}" Margin="8,0,0,0" Foreground="{StaticResource Ink}"/>
+                            </StackPanel>
+                        </Button>
+
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Журнал: выезжает снизу, по умолчанию закрыт -->
+            <Border x:Name="LogPanel" Grid.Row="1" VerticalAlignment="Bottom" Height="210" Margin="16,0,16,16"
+                    Background="#10131A" CornerRadius="10" BorderBrush="{StaticResource Edge}" BorderThickness="1"
+                    Visibility="Collapsed">
+                <DockPanel Margin="12,8,12,10">
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,6" Height="32">
+                        <TextBlock Text="{DynamicResource L_Log}" Foreground="{StaticResource InkSoft}" VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button Style="{StaticResource IconButton}" ToolTip="{DynamicResource L_Copy}" Click="CopyLog_Click">
+                                <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoCopy}"/>
+                            </Button>
+                            <Button Style="{StaticResource IconButton}" Click="ToggleLog_Click">
+                                <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoClose}"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <TextBox x:Name="LogBox" IsReadOnly="True" Background="Transparent" BorderThickness="0"
+                             Padding="0" FontFamily="Cascadia Mono, Consolas" FontSize="11"
+                             Foreground="{StaticResource InkSoft}" TextWrapping="NoWrap"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Каталог моделей -->
+            <Grid x:Name="CatalogOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
+                <Border Width="760" Height="460" Background="{StaticResource Surface}" CornerRadius="12"
+                        BorderBrush="{StaticResource Edge}" BorderThickness="1">
+                    <DockPanel Margin="18">
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,12" Height="32">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource L_CatalogOllama}" Style="{StaticResource TitleText}"/>
+                                <TextBlock x:Name="CatalogCount" Style="{StaticResource MutedText}"
+                                           Foreground="{StaticResource InkFaint}" Margin="10,0,0,0"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <Button Style="{StaticResource CardButton}" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center" Margin="0" Click="CloseCatalog_Click">
+                                <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoClose}"/>
+                            </Button>
+                        </Grid>
+
+                        <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                            <Button x:Name="PullBtn" Style="{StaticResource PrimaryButton}" Content="{DynamicResource L_Download}"
+                                    HorizontalAlignment="Right" Click="Pull_Click" IsEnabled="False"/>
+                        </Grid>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="280"/>
+                            </Grid.ColumnDefinitions>
+
+                            <DockPanel Grid.Column="0" Margin="0,0,14,0">
+                                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                                    <TextBox x:Name="SearchBox" Padding="22,4" TextChanged="Search_TextChanged"/>
+                                    <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoSearch}"
+                                          Stroke="{StaticResource InkFaint}" HorizontalAlignment="Left"
+                                          Margin="6,0,0,0" IsHitTestVisible="False"/>
+                                </Grid>
+                                <ListBox x:Name="CatalogList" Background="#11141A" BorderBrush="{StaticResource Edge}"
+                                         BorderThickness="1" Foreground="{StaticResource Ink}"
+                                         ItemContainerStyle="{StaticResource PlainItem}"
+                                         SelectionChanged="CatalogList_SelectionChanged"/>
+                            </DockPanel>
+
+                            <DockPanel Grid.Column="1">
+                                <TextBlock DockPanel.Dock="Top" x:Name="TagsTitle" Text="{DynamicResource L_Versions}"
+                                           Foreground="{StaticResource InkSoft}" Margin="0,0,0,8" Height="20"/>
+                                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                                    <TextBox x:Name="TagSearchBox" Padding="22,4" TextChanged="TagSearch_TextChanged"/>
+                                    <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoSearch}"
+                                          Stroke="{StaticResource InkFaint}" HorizontalAlignment="Left"
+                                          Margin="6,0,0,0" IsHitTestVisible="False"/>
+                                </Grid>
+                                <ListBox x:Name="TagList" Background="Transparent" BorderThickness="0"
+                                         DisplayMemberPath="Display"
+                                         ItemContainerStyle="{StaticResource TagItem}"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                </ListBox>
+                            </DockPanel>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <!-- Обновления -->
+            <Grid x:Name="UpdatesOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
+                <Border Width="620" MaxHeight="520" Background="{StaticResource Surface}" CornerRadius="12"
+                        VerticalAlignment="Center" BorderBrush="{StaticResource Edge}" BorderThickness="1"
+                        Padding="20">
+                    <DockPanel>
+                        <Grid DockPanel.Dock="Top" Height="32" Margin="0,0,0,10">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource L_Updates}" Style="{StaticResource TitleText}"/>
+                                <TextBlock x:Name="UpdatesStatus" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{StaticResource InkFaint}" FontSize="11.5"/>
+                            </StackPanel>
+                            <Button Style="{StaticResource CardButton}" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center" Margin="0" Click="CloseUpdates_Click">
+                                <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoClose}"/>
+                            </Button>
+                        </Grid>
+
+                        <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                            <Button x:Name="RecheckBtn" Style="{StaticResource GhostButton}"
+                                    Content="{DynamicResource L_Recheck}" HorizontalAlignment="Left"
+                                    Click="RecheckUpdates_Click"/>
+                            <ProgressBar x:Name="UpdateProgress" Width="220" HorizontalAlignment="Right"
+                                         VerticalAlignment="Center" Visibility="Collapsed"/>
+                        </Grid>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="UpdateList"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <!-- Настройки модели -->
+            <Grid x:Name="TuneOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
+                <Border Width="620" MaxHeight="560" Background="{StaticResource Surface}" CornerRadius="12"
+                        VerticalAlignment="Center" BorderBrush="{StaticResource Edge}" BorderThickness="1"
+                        Padding="20">
+                    <DockPanel>
+                        <Grid DockPanel.Dock="Top" Height="32" Margin="0,0,0,4">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource L_Settings}" Style="{StaticResource TitleText}"/>
+                                <TextBlock x:Name="TuneModelText" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{StaticResource InkFaint}" FontSize="11.5"/>
+                            </StackPanel>
+                            <Button Style="{StaticResource CardButton}" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center" Margin="0" Click="CloseTune_Click">
+                                <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoClose}"/>
+                            </Button>
+                        </Grid>
+
+                        <Grid DockPanel.Dock="Bottom" Margin="0,14,0,0">
+                            <Button Style="{StaticResource GhostButton}" Content="{DynamicResource L_Reset}" HorizontalAlignment="Left"
+                                    Click="TuneReset_Click"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Style="{StaticResource GhostButton}" Content="{DynamicResource L_Cancel}" Margin="0,0,8,0"
+                                        Click="CloseTune_Click"/>
+                                <Button Style="{StaticResource PrimaryButton}" Content="{DynamicResource L_Save}"
+                                        Click="TuneSave_Click"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                            <StackPanel>
+                                <TextBlock Text="OpenCode" Foreground="{StaticResource InkSoft}" Margin="0,0,0,8"/>
+                                <ItemsControl x:Name="HarnessRows"/>
+                                <TextBlock Text="Ollama" Foreground="{StaticResource InkSoft}" Margin="0,10,0,8"/>
+                                <ItemsControl x:Name="ModelRows"/>
+                                <TextBlock x:Name="TuneNote" Style="{StaticResource MutedText}" Margin="0,4,0,0"
+                                           Foreground="{StaticResource InkFaint}"
+                                           />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <!-- Установка OpenCode -->
+            <Grid x:Name="SetupOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
+                <Border Width="540" Background="{StaticResource Surface}" CornerRadius="12" VerticalAlignment="Center"
+                        BorderBrush="{StaticResource Edge}" BorderThickness="1" Padding="20">
+                    <StackPanel>
+                        <Grid Height="32">
+                            <TextBlock Text="{DynamicResource L_SetupTitle}" Style="{StaticResource TitleText}"/>
+                            <Button x:Name="SetupClose" Style="{StaticResource CardButton}" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center" Margin="0" Click="CloseSetup_Click">
+                                <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoClose}"/>
+                            </Button>
+                        </Grid>
+                        <TextBlock Style="{StaticResource MutedText}" Margin="0,8,0,0"
+                                   Foreground="{StaticResource InkFaint}"
+                                   Text="{DynamicResource L_SetupNote}"/>
+
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="DirBox" Grid.Column="0" Padding="8,4"/>
+                            <Button Grid.Column="1" Style="{StaticResource IconButton}" Margin="6,0,0,0"
+                                    Click="PickInstallDir_Click" ToolTip="{DynamicResource L_PickFolder}">
+                                <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoFolder}"/>
+                            </Button>
+                        </Grid>
+
+                        <ItemsControl x:Name="StepList" Margin="0,14,0,0"/>
+
+                        <ProgressBar x:Name="SetupProgress" Margin="0,4,0,0" Visibility="Collapsed"/>
+
+                        <Button x:Name="InstallBtn" Style="{StaticResource PrimaryButton}" Content="{DynamicResource L_Install}"
+                                Margin="0,16,0,0" HorizontalAlignment="Stretch" Click="Install_Click"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Запуск: сначала поднимаем модель, и только потом OpenCode -->
+            <Grid x:Name="LaunchOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
+                <Border Width="460" Background="{StaticResource Surface}" CornerRadius="12" VerticalAlignment="Center"
+                        BorderBrush="{StaticResource Edge}" BorderThickness="1" Padding="20">
+                    <StackPanel>
+                        <Grid Height="32">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource L_Run}" Style="{StaticResource TitleText}"/>
+                                <TextBlock x:Name="LaunchModelText" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{StaticResource InkFaint}" FontSize="11.5"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <ItemsControl x:Name="LaunchSteps" Margin="0,14,0,0"/>
+                        <ProgressBar x:Name="LaunchProgress" Maximum="100" Margin="0,4,0,0"/>
+
+                        <TextBlock x:Name="LaunchNote" Style="{StaticResource MutedText}" Margin="0,12,0,0"
+                                   Foreground="{StaticResource InkFaint}" TextWrapping="Wrap"/>
+
+                        <Button x:Name="LaunchCancel" Style="{StaticResource GhostButton}"
+                                Content="{DynamicResource L_Cancel}" Margin="0,14,0,0"
+                                HorizontalAlignment="Right" Click="LaunchCancel_Click"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Подтверждение: своё, потому что системное окно приезжает белым -->
+            <Grid x:Name="ConfirmOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
+                <Border Width="380" Background="{StaticResource Surface}" CornerRadius="12" VerticalAlignment="Center"
+                        BorderBrush="{StaticResource Edge}" BorderThickness="1" Padding="18">
+                    <StackPanel>
+                        <TextBlock x:Name="ConfirmText" Style="{StaticResource MutedText}" FontSize="13"
+                                   Foreground="{StaticResource Ink}" TextAlignment="Center"
+                                   HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,18,0,0">
+                            <Button Style="{StaticResource GhostButton}" Content="{DynamicResource L_Cancel}" Click="ConfirmNo_Click"
+                                    Margin="0,0,8,0"/>
+                            <Button x:Name="ConfirmYes" Style="{StaticResource PrimaryButton}" Content="{DynamicResource L_Delete}" Click="ConfirmYes_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Выбор языка -->
+            <Grid x:Name="LangOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed"
+                  MouseLeftButtonDown="CloseLang_Click">
+                <Border Width="260" Background="{StaticResource Surface}" CornerRadius="12" VerticalAlignment="Center"
+                        BorderBrush="{StaticResource Edge}" BorderThickness="1" Padding="18">
+                    <StackPanel>
+                        <Grid Height="32">
+                            <TextBlock Text="{DynamicResource L_Language}" Style="{StaticResource TitleText}"/>
+                            <Button Style="{StaticResource CardButton}" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center" Margin="0" Click="CloseLang_Click">
+                                <Path Style="{StaticResource IconGlyph}" Data="{StaticResource IcoClose}"/>
+                            </Button>
+                        </Grid>
+                        <ListBox x:Name="LangList" Margin="0,10,0,0" Background="#11141A"
+                                 BorderBrush="{StaticResource Edge}" BorderThickness="1"
+                                 ItemContainerStyle="{StaticResource PlainItem}"
+                                 SelectionChanged="LangList_SelectionChanged">
+                            <ListBoxItem Content="English" Tag="en"/>
+                            <ListBoxItem Content="Русский" Tag="ru"/>
+                            <ListBoxItem Content="中文" Tag="zh"/>
+                        </ListBox>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

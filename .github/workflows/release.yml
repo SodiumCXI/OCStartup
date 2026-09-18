@@ -1,0 +1,74 @@
+﻿# Сборка релиза: один самодостаточный exe, .NET на машине не нужен.
+#
+# Срабатывает, когда релиз опубликован, и кладёт архив прямо в него.
+# Запустить руками тоже можно - тогда архив останется артефактом прогона.
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write        # нужно, чтобы дописать файл в релиз
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Номер версии берём из метки релиза: v1.2.3 -> 1.2.3.
+      - name: Версия из метки
+        id: version
+        shell: pwsh
+        run: |
+          $tag = '${{ github.event.release.tag_name }}'
+          $value = if ($tag) { $tag.TrimStart('v') } else { '0.0.0' }
+          if ($value -notmatch '^\d+(\.\d+){0,3}$') { $value = '0.0.0' }
+          "value=$value" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "версия: $value"
+
+      # Самодостаточная сборка: рантайм внутри, WPF не обрезается (PublishTrimmed
+      # он не переживает), родные библиотеки упакованы в тот же файл.
+      - name: Сборка
+        shell: pwsh
+        run: >
+          dotnet publish DshStudio.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=none
+          -p:Version=${{ steps.version.outputs.value }}
+          -o publish
+
+      - name: Архив
+        shell: pwsh
+        run: |
+          $name = "OCStartup-${{ steps.version.outputs.value }}-win-x64.zip"
+          Compress-Archive -Path publish\* -DestinationPath $name -Force
+          "name=$name" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Get-Item $name | Select-Object Name, Length
+        id: archive
+
+      - name: Положить в релиз
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload '${{ github.event.release.tag_name }}' '${{ steps.archive.outputs.name }}' --clobber
+
+      # Ручной прогон релиза не трогает, поэтому архив отдаём артефактом.
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'release'
+        with:
+          name: ${{ steps.archive.outputs.name }}
+          path: ${{ steps.archive.outputs.name }}
