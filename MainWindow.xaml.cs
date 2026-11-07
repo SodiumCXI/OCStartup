@@ -671,10 +671,10 @@ public partial class MainWindow : Window
                     break;
 
                 case "model":
-                    UpdatesOverlay.Visibility = Visibility.Collapsed;
-                    await PullModelAsync(row.Title, _models.FirstOrDefault(m => m.Name == row.Title));
-                    row.State = Loc.S("L_ModelFresh");
-                    row.CanUpdate = false;
+                    var pulled = await PullModelAsync(row.Title, _models.FirstOrDefault(m => m.Name == row.Title),
+                        (status, share) => row.Show(status, share ?? -1));
+                    row.State = pulled ? Loc.S("L_ModelFresh") : was;
+                    row.CanUpdate = !pulled;
                     break;
             }
         }
@@ -829,7 +829,8 @@ public partial class MainWindow : Window
         if (freed > 0) Log(Loc.F("L_LogFreed", freed / 1024.0 / 1024));
     }
 
-    private async Task PullModelAsync(string tag, ModelCard? existing = null)
+    private async Task<bool> PullModelAsync(string tag, ModelCard? existing = null,
+                                            Action<string, double?>? watch = null)
     {
         var card = existing ?? new ModelCard(tag);
         if (existing is null)
@@ -852,11 +853,13 @@ public partial class MainWindow : Window
             {
                 card.Status = share is { } p ? $"{status} - {p:0}%" : status;
                 if (share is { } value) card.Progress = value;
+                watch?.Invoke(status, share);
             }), cts.Token);
 
             Log(Loc.F("L_LogPulled", card.Name));
             card.Busy = false;
             await RefreshModelsAsync();
+            return true;
         }
         catch (Exception) when (cts.IsCancellationRequested)
         {
@@ -883,6 +886,7 @@ public partial class MainWindow : Window
         {
             card.Cancellation = null;
         }
+        return false;
     }
 
     private async void Delete_Click(object sender, RoutedEventArgs e)
