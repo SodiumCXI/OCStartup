@@ -17,8 +17,8 @@ the launcher configures both programs and opens OpenCode ready to work.
 
 ## Install
 
-Requires Windows 10/11 x64 and [Ollama](https://ollama.com/download). The launcher installs OpenCode
-on its own.
+Requires Windows 10/11 x64. The launcher silently installs OpenCode and Ollama (the version without
+an interface) into the folder you choose.
 
 Download the archive from [Releases](../../releases), unpack it and run `OCStartup.exe` - the build
 is self-contained, no .NET required.

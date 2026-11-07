@@ -105,6 +105,7 @@ public sealed class UpdateRow : Notify
     private string _available = "";
     private bool _canUpdate;
     private bool _busy;
+    private double _percent = -1;
     private string _action = Loc.S("L_Update");
 
     public UpdateRow(string title, string kind)
@@ -122,8 +123,18 @@ public sealed class UpdateRow : Notify
     public string State { get => _state; set { Set(ref _state, value); Raise(nameof(Line)); } }
 
     public bool CanUpdate { get => _canUpdate; set { Set(ref _canUpdate, value); Raise(nameof(Waiting)); } }
-    public bool Busy { get => _busy; set { Set(ref _busy, value); Raise(nameof(Waiting)); } }
+    public bool Busy { get => _busy; set { Set(ref _busy, value); Raise(nameof(Waiting)); Raise(nameof(Measured)); } }
     public bool Waiting => _canUpdate && !_busy;
+
+    public double Percent { get => _percent; private set { Set(ref _percent, value); Raise(nameof(Measured)); } }
+    /// <summary>Полоса только там, где доля известна: без неё шаблон рисует полную.</summary>
+    public bool Measured => _busy && _percent >= 0;
+
+    public void Show(string state, double percent)
+    {
+        State = state;
+        Percent = percent;
+    }
 
     public string Line => Available.Length > 0 && Available != Current
         ? $"{State}: {Current} -> {Available}"

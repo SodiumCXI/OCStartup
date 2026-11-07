@@ -50,7 +50,7 @@ public static class Loc
         ["L_StartOllama"] = new[] { "Start Ollama", "Запустить Ollama", "启动 Ollama" },
         ["L_Updates"] = new[] { "Updates", "Обновления", "更新" },
         ["L_Log"] = new[] { "Log", "Журнал", "日志" },
-        ["L_InstallFolder"] = new[] { "OpenCode install folder", "Папка установки OpenCode", "OpenCode 安装目录" },
+        ["L_InstallFolder"] = new[] { "Install folder", "Папка установки", "安装目录" },
         ["L_SetupFailed"] = new[]
         {
             "the OpenCode installer returned {0}",
@@ -81,12 +81,12 @@ public static class Loc
         ["L_Close"] = new[] { "Close", "Закрыть", "关闭" },
 
         ["L_Save"] = new[] { "Save", "Сохранить", "保存" },
-        ["L_SetupTitle"] = new[] { "Install OpenCode", "Установка OpenCode", "安装 OpenCode" },
+        ["L_SetupTitle"] = new[] { "Install OpenCode and Ollama", "Установка OpenCode и Ollama", "安装 OpenCode 和 Ollama" },
         ["L_SetupNote"] = new[]
         {
-            "The OpenCode app is installed into this folder from its GitHub release; Ollama models go there too.",
-            "Приложение OpenCode ставится в эту папку из выпуска на GitHub, модели Ollama - туда же.",
-            "OpenCode 应用将从 GitHub 发行版安装到此目录，Ollama 模型也放在这里。",
+            "OpenCode, Ollama and the models all go into this folder, silently, from their GitHub releases.",
+            "OpenCode, Ollama и модели ставятся в эту папку тихо, из выпусков на GitHub.",
+            "OpenCode、Ollama 和模型都会从 GitHub 发行版静默安装到此目录。",
         },
         ["L_PickFolder"] = new[] { "Choose folder", "Выбрать папку", "选择文件夹" },
         ["L_Install"] = new[] { "Install", "Установить", "安装" },
@@ -101,6 +101,12 @@ public static class Loc
             "Приложение OpenCode из выпуска на GitHub",
             "来自 GitHub 发行版的 OpenCode 应用",
         },
+        ["L_StepOllama"] = new[]
+        {
+            "Ollama without the interface",
+            "Ollama без интерфейса",
+            "不带界面的 Ollama",
+        },
         ["L_StepModels"] = new[]
         {
             "Ollama models move into the install folder",
@@ -109,6 +115,22 @@ public static class Loc
         },
         ["L_StepConfig"] = new[] { "Config file", "Файл настроек", "配置文件" },
         ["L_DownloadingOpenCode"] = new[] { "Downloading OpenCode {0}", "Загрузка OpenCode {0}", "正在下载 OpenCode {0}" },
+        ["L_DownloadingOllama"] = new[] { "Downloading Ollama {0}", "Загрузка Ollama {0}", "正在下载 Ollama {0}" },
+        ["L_Unpacking"] = new[] { "Unpacking", "Распаковка", "正在解压" },
+        ["L_Installing"] = new[] { "Installing", "Установка", "正在安装" },
+        ["L_Queued"] = new[] { "queued", "в очереди", "排队中" },
+        ["L_OllamaReleaseMissing"] = new[]
+        {
+            "no Windows release of Ollama found",
+            "выпуск Ollama для Windows не найден",
+            "未找到 Ollama 的 Windows 发行版",
+        },
+        ["L_DriveRoot"] = new[]
+        {
+            "OpenCode sits in the root of {0}: move it into a folder first",
+            "OpenCode стоит в корне {0}: сначала перенесите его в папку",
+            "OpenCode 位于 {0} 根目录，请先移到文件夹中",
+        },
         ["L_OpenCodeReady"] = new[] { "OpenCode {0} is in place", "OpenCode {0} на месте", "OpenCode {0} 已就位" },
         ["L_ReleaseMissing"] = new[]
         {
@@ -143,9 +165,9 @@ public static class Loc
         ["L_NotRunning"] = new[] { "not running", "не запущена", "未运行" },
         ["L_NoInstaller"] = new[]
         {
-            "update available, but the release has no installer",
-            "обновление есть, установщика в выпуске нет",
-            "有更新，但发行包中没有安装程序",
+            "update available, but the release has no Windows archive",
+            "обновление есть, архива для Windows в выпуске нет",
+            "有更新，但发行包中没有 Windows 压缩包",
         },
         ["L_CheckedAt"] = new[] { "checked at {0}", "проверено в {0}", "已于 {0} 检查" },
         ["L_NotInCatalog"] = new[] { "not in the ollama.com catalog", "нет в каталоге ollama.com", "ollama.com 模型库中没有" },
@@ -154,20 +176,7 @@ public static class Loc
         ["L_CheckFailed"] = new[] { "check failed", "проверить не удалось", "检查失败" },
         ["L_UpToDate"] = new[] { "up to date", "актуально", "已是最新" },
         ["L_UpdateAvailable"] = new[] { "update available", "есть обновление", "有可用更新" },
-        ["L_Updating"] = new[] { "updating...", "обновление...", "更新中…" },
         ["L_Updated"] = new[] { "updated", "обновлено", "已更新" },
-        ["L_InstallerRunningInstall"] = new[]
-        {
-            "installer started, finish the installation in its window",
-            "установщик запущен, закончите установку в его окне",
-            "安装程序已启动，请在其窗口中完成安装",
-        },
-        ["L_InstallerRunningUpdate"] = new[]
-        {
-            "installer started, finish the update in its window",
-            "установщик запущен, закончите обновление в его окне",
-            "安装程序已启动，请在其窗口中完成更新",
-        },
 
         ["L_CatalogLoading"] = new[] { "loading the list...", "список загружается...", "正在加载列表…" },
         ["L_CatalogCount"] = new[]
@@ -305,7 +314,6 @@ public static class Loc
         ["L_LogInstallTo"] = new[] { "=== Installing into {0}", "=== Установка в {0}", "=== 正在安装到 {0}" },
         ["L_LogDone"] = new[] { "=== Done", "=== Готово", "=== 完成" },
         ["L_LogInstallFailed"] = new[] { "Installation failed: {0}", "Установка сорвалась: {0}", "安装失败：{0}" },
-        ["L_LogOllamaInstaller"] = new[] { "Ollama installer: {0}", "Установщик Ollama: {0}", "Ollama 安装程序：{0}" },
         ["L_LogUpdateFailed"] = new[] { "Update failed: {0}", "Обновление не прошло: {0}", "更新失败：{0}" },
         ["L_LogCatalog"] = new[] { "Catalog: {0}", "Каталог: {0}", "模型库：{0}" },
         ["L_LogCancelled"] = new[] { "Cancelled: {0}", "Отменено: {0}", "已取消：{0}" },

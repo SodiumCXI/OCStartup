@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.InteropServices;
@@ -9,6 +10,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows.Automation;
+using Microsoft.Win32;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -263,13 +265,26 @@ public static class Ollama
 
 public static class OllamaHost
 {
-    private static string Programs =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Ollama");
+    public static string Folder { get; set; } = "";
 
-    private static string Tray => Path.Combine(Programs, "ollama app.exe");
-    private static string Cli => Path.Combine(Programs, "ollama.exe");
+    private static string SystemCli =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                     "Programs", "Ollama", "ollama.exe");
 
-    public static bool IsInstalled() => File.Exists(Tray) || File.Exists(Cli);
+    private static string Own(string dir) => Path.Combine(dir, "Ollama", "ollama.exe");
+    private static string Cli => File.Exists(Own(Folder)) ? Own(Folder) : SystemCli;
+
+    public static bool IsInstalled() => File.Exists(Cli);
+    public static bool IsOwn(string dir) => File.Exists(Own(dir));
+
+    public static void Settle(string dir)
+    {
+        var old = Path.GetDirectoryName(Own(Folder))!;
+        var moved = Folder.Length > 0 && !string.Equals(Path.GetFullPath(old),
+            Path.GetFullPath(Path.GetDirectoryName(Own(dir))!), StringComparison.OrdinalIgnoreCase);
+        Folder = dir;
+        if (moved) OpenCode.TryDelete(old);
+    }
 
     public static string? InstalledVersion()
     {
@@ -302,14 +317,6 @@ public static class OllamaHost
         var chosen = Environment.GetEnvironmentVariable("OLLAMA_MODELS", EnvironmentVariableTarget.User);
         if (!string.IsNullOrWhiteSpace(chosen)) return chosen.TrimEnd('\\');
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ollama", "models");
-    }
-
-    public static void SyncProcessEnv()
-    {
-        var dir = ModelsDir();
-        if (!string.Equals(Environment.GetEnvironmentVariable("OLLAMA_MODELS"), dir,
-                           StringComparison.OrdinalIgnoreCase))
-            Environment.SetEnvironmentVariable("OLLAMA_MODELS", dir);
     }
 
     public static long LoadedBytes()
@@ -357,11 +364,11 @@ public static class OllamaHost
 
         // Свой вывод Ollama никуда не пишет. Заворачиваем его в файл через cmd:
         // труба оборвалась бы вместе с нами, а файл останется её собственным.
-        var psi = File.Exists(Cli)
-            ? new ProcessStartInfo("cmd.exe", $"/c \"\"{Cli}\" serve > \"{OllamaLog.File}\" 2>&1\"")
-              { CreateNoWindow = true }
-            : new ProcessStartInfo(Tray) { WindowStyle = ProcessWindowStyle.Hidden };
-        psi.UseShellExecute = false;
+        var psi = new ProcessStartInfo("cmd.exe", $"/c \"\"{Cli}\" serve > \"{OllamaLog.File}\" 2>&1\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+        };
         psi.Environment["OLLAMA_MODELS"] = modelsDir;
         if (context > 0) psi.Environment["OLLAMA_CONTEXT_LENGTH"] = context.ToString();
         Context = context;
@@ -485,6 +492,7 @@ public static class Catalog
 
 public static class Updates
 {
+    private const string OllamaArchive = "ollama-windows-amd64.zip";
     private static readonly HttpClient Http = new() { Timeout = Timeout.InfiniteTimeSpan };
 
     public static async Task<(string Version, string Url)?> LatestOllamaAsync()
@@ -502,8 +510,7 @@ public static class Updates
             var version = (root.GetProperty("tag_name").GetString() ?? "").TrimStart('v');
             foreach (var asset in root.GetProperty("assets").EnumerateArray())
             {
-                var name = asset.GetProperty("name").GetString() ?? "";
-                if (name.StartsWith("OllamaSetup", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".exe"))
+                if (string.Equals(asset.GetProperty("name").GetString(), OllamaArchive, StringComparison.OrdinalIgnoreCase))
                     return (version, asset.GetProperty("browser_download_url").GetString() ?? "");
             }
             return (version, "");
@@ -511,30 +518,56 @@ public static class Updates
         catch { return null; }
     }
 
-    public static async Task<string> RunOllamaSetupAsync(string url, IProgress<double> percent, CancellationToken ct)
+    public static async Task InstallOllamaAsync(string dir, (string Version, string Url) release,
+                                                Action<string, double> report, CancellationToken ct)
     {
-        var file = Path.Combine(Path.GetTempPath(), "OllamaSetup.exe");
-        using (var resp = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct))
+        var home = Path.Combine(dir, "Ollama");
+        var fresh = home + ".new";
+        var file = OpenCode.DownloadPath(dir, OllamaArchive);
+        try
         {
-            resp.EnsureSuccessStatusCode();
-            var total = resp.Content.Headers.ContentLength ?? 0;
-            await using var src = await resp.Content.ReadAsStreamAsync(ct);
-            await using var dst = File.Create(file);
-            var buffer = new byte[81920];
-            long got = 0;
-            int read;
-            while ((read = await src.ReadAsync(buffer, ct)) > 0)
-            {
-                await dst.WriteAsync(buffer.AsMemory(0, read), ct);
-                got += read;
-                if (total > 0) percent.Report(got * 100.0 / total);
-            }
+            await OpenCode.DownloadAsync(release.Url, file,
+                percent => report(Loc.F("L_DownloadingOllama", release.Version), percent), ct);
+
+            OpenCode.TryDelete(fresh);
+            await Task.Run(() => Unpack(file, fresh, percent => report(Loc.S("L_Unpacking"), percent), ct), ct);
+
+            report(Loc.S("L_Installing"), -1);
+            OllamaHost.Stop();
+            await Task.Delay(1500, ct);
+            if (Directory.Exists(home)) Directory.Delete(home, true);
+            Directory.Move(fresh, home);
+        }
+        finally
+        {
+            OpenCode.TryDelete(fresh);
+            OpenCode.DropDownload(file);
         }
 
-        var psi = new ProcessStartInfo(file) { UseShellExecute = false };
-        psi.Environment["OLLAMA_MODELS"] = OllamaHost.ModelsDir();
-        Process.Start(psi);
-        return file;
+        OllamaHost.Settle(dir);
+        OllamaHost.Start(OllamaHost.ModelsDir(), OllamaHost.Context);
+        for (var i = 0; i < 20 && await Ollama.VersionAsync() is null; i++) await Task.Delay(500, ct);
+    }
+
+    private static void Unpack(string archive, string target, Action<double> percent, CancellationToken ct)
+    {
+        using var zip = ZipFile.OpenRead(archive);
+        var root = Path.GetFullPath(target) + Path.DirectorySeparatorChar;
+        var total = zip.Entries.Sum(entry => entry.Length);
+        long done = 0;
+        foreach (var entry in zip.Entries)
+        {
+            ct.ThrowIfCancellationRequested();
+            var path = Path.GetFullPath(Path.Combine(root, entry.FullName));
+            if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(entry.FullName);
+            if (entry.Name.Length == 0) continue;
+
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            entry.ExtractToFile(path);
+            done += entry.Length;
+            percent(done * 100.0 / total);
+        }
     }
 }
 
@@ -555,9 +588,16 @@ public sealed class OpenCode
 {
     private const string Release = "https://api.github.com/repos/anomalyco/opencode/releases/latest";
     private const string Asset = "opencode-desktop-win-x64.exe";
+    private const string InstallKey = @"Software\d074f30d-5f88-5885-b075-be1348cc7676";
+    private static readonly string[] Ours = { "models", "Ollama", "download" };
     private static readonly HttpClient Http = new() { Timeout = Timeout.InfiniteTimeSpan };
 
-    public static string Exe(string dir) => Path.Combine(dir, "OpenCode.exe");
+    public static string Exe(string dir) => Path.Combine(Home(dir), "OpenCode.exe");
+
+    /// <summary>Установщик OpenCode при обновлении вычищает свою папку целиком, поэтому у него своя подпапка.</summary>
+    private static string Home(string dir) =>
+        File.Exists(Path.Combine(dir, "OpenCode.exe")) ? dir : Path.Combine(dir, "OpenCode");
+
     public static string ConfigFile(string dir) => Path.Combine(dir, "opencode.json");
 
     public static bool IsInstalled(string dir) =>
@@ -702,47 +742,148 @@ public sealed class OpenCode
 
         var release = await LatestAsync()
             ?? throw new InvalidOperationException(Loc.S("L_ReleaseMissing"));
-        await FetchAsync(dir, release, pct => report.Report(
-            new InstallReport(0, pct, Loc.F("L_DownloadingOpenCode", release.Version))), ct);
+        await FetchAsync(dir, release, (caption, percent) => report.Report(new InstallReport(0, percent, caption)), ct);
         report.Report(new InstallReport(0, 100, Loc.F("L_OpenCodeReady", release.Version), Done: true));
 
-        var models = Loc.S("L_StepModels");
-        report.Report(new InstallReport(1, -1, models));
-        await OllamaHost.UseModelsDirAsync(Path.Combine(dir, "models"),
-            line => report.Report(new InstallReport(1, -1, models, Log: line)));
-        report.Report(new InstallReport(1, 100, models, Done: true));
+        if (OllamaHost.IsOwn(dir))
+            OllamaHost.Settle(dir);
+        else
+        {
+            var ollama = await Updates.LatestOllamaAsync();
+            if (ollama is not { Url.Length: > 0 } found)
+                throw new InvalidOperationException(Loc.S("L_OllamaReleaseMissing"));
+            await Updates.InstallOllamaAsync(dir, found,
+                (caption, percent) => report.Report(new InstallReport(1, percent, caption)), ct);
+        }
+        report.Report(new InstallReport(1, 100, Loc.S("L_StepOllama"), Done: true));
 
-        Directory.CreateDirectory(dir);
-        report.Report(new InstallReport(2, 100, Loc.S("L_StepConfig"), Done: true));
+        var models = Loc.S("L_StepModels");
+        report.Report(new InstallReport(2, -1, models));
+        await OllamaHost.UseModelsDirAsync(Path.Combine(dir, "models"),
+            line => report.Report(new InstallReport(2, -1, models, Log: line)));
+        report.Report(new InstallReport(2, 100, models, Done: true));
+
+        report.Report(new InstallReport(3, 100, Loc.S("L_StepConfig"), Done: true));
     }
 
-    public async Task UpdateAsync(string dir, IProgress<double> percent, CancellationToken ct)
+    public async Task UpdateAsync(string dir, Action<string, double> report, CancellationToken ct)
     {
         var release = await LatestAsync()
             ?? throw new InvalidOperationException(Loc.S("L_ReleaseMissing"));
-        await FetchAsync(dir, release, percent.Report, ct);
+        await FetchAsync(dir, release, report, ct);
     }
 
     /// <summary>NSIS: /S ставит молча, /D обязан идти последним и без кавычек.</summary>
     private static async Task FetchAsync(string dir, (string Version, string Url) release,
-                                         Action<double> percent, CancellationToken ct)
+                                         Action<string, double> report, CancellationToken ct)
     {
-        var setup = Path.Combine(Path.GetTempPath(), Asset);
-        await DownloadAsync(release.Url, setup, percent, ct);
-
-        Quit(dir);
-        await Task.Delay(1000, ct);
-
-        var psi = new ProcessStartInfo(setup, $"/S /D={dir.TrimEnd('\\')}")
+        var file = DownloadPath(dir, Asset);
+        try
         {
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-        using var installer = Process.Start(psi)!;
-        await installer.WaitForExitAsync(ct);
-        if (installer.ExitCode != 0)
-            throw new InvalidOperationException(Loc.F("L_SetupFailed", installer.ExitCode));
-        TryDelete(setup);
+            await DownloadAsync(release.Url, file,
+                percent => report(Loc.F("L_DownloadingOpenCode", release.Version), percent), ct);
+            report(Loc.S("L_Installing"), -1);
+
+            Quit(dir);
+            await Task.Delay(1000, ct);
+
+            var owner = Registered();
+            var aside = await ParkAsync(owner, ct);
+            try
+            {
+                var setup = File.Exists(file) ? file : Path.Combine(aside!, "download", Asset);
+                var psi = new ProcessStartInfo(setup, $"/S /D={Path.Combine(dir.TrimEnd('\\'), "OpenCode")}")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                psi.Environment["TMP"] = psi.Environment["TEMP"] = Path.GetDirectoryName(setup);
+                using var installer = Process.Start(psi)!;
+                await installer.WaitForExitAsync(ct);
+                if (installer.ExitCode != 0)
+                    throw new InvalidOperationException(Loc.F("L_SetupFailed", installer.ExitCode));
+            }
+            finally
+            {
+                if (aside is not null)
+                {
+                    await UnparkAsync(owner!, aside);
+                    OllamaHost.Start(OllamaHost.ModelsDir(), OllamaHost.Context);
+                }
+            }
+        }
+        finally
+        {
+            DropDownload(file);
+        }
+    }
+
+    private static string? Registered()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(InstallKey);
+        return key?.GetValue("InstallLocation") as string;
+    }
+
+    /// <summary>Версия 1.0.0 ставила OpenCode рядом с моделями: установщик удалил бы и их.</summary>
+    internal static async Task<string?> ParkAsync(string? owner, CancellationToken ct)
+    {
+        if (owner is null) return null;
+        bool Holds(string name) => Directory.Exists(Path.Combine(owner, name));
+        if (Path.GetDirectoryName(owner) is null)
+            return Ours.Any(Holds) ? throw new InvalidOperationException(Loc.F("L_DriveRoot", owner)) : null;
+
+        var aside = Aside(owner);
+        if (Directory.Exists(aside)) await UnparkAsync(owner, aside);
+
+        var found = Ours.Where(Holds).ToList();
+        if (found.Count == 0) return null;
+
+        OllamaHost.Stop();
+        await Task.Delay(1500, ct);
+
+        Directory.CreateDirectory(aside);
+        try
+        {
+            foreach (var name in found) Directory.Move(Path.Combine(owner, name), Path.Combine(aside, name));
+        }
+        catch
+        {
+            await UnparkAsync(owner, aside);
+            throw;
+        }
+        return aside;
+    }
+
+    /// <summary>Имя не должно начинаться с имени папки: старый установщик снимает процессы по началу пути, а запущен он отсюда.</summary>
+    private static string Aside(string owner)
+    {
+        var path = owner.TrimEnd('\\');
+        return Path.Combine(Path.GetDirectoryName(path)!, ".keep-" + Path.GetFileName(path));
+    }
+
+    internal static async Task UnparkAsync(string owner, string aside)
+    {
+        Directory.CreateDirectory(owner);
+        foreach (var name in Ours.Where(name => name != "download"))
+        {
+            var from = Path.Combine(aside, name);
+            if (!Directory.Exists(from)) continue;
+
+            // Снятый процесс отпускает файлы не сразу.
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    Directory.Move(from, Path.Combine(owner, name));
+                    break;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && attempt < 10)
+                {
+                    await Task.Delay(1000);
+                }
+            }
+        }
+        TryDelete(aside);
     }
 
     public static void WriteConfig(string dir, OpenCodeModel model)
@@ -816,25 +957,38 @@ public sealed class OpenCode
         return fresh;
     }
 
-    private static async Task DownloadAsync(string url, string file, Action<double> pct, CancellationToken ct)
+    internal static string DownloadPath(string dir, string name)
     {
-        using var resp = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+        var folder = Path.Combine(dir, "download");
+        Directory.CreateDirectory(folder);
+        return Path.Combine(folder, name);
+    }
+
+    internal static void DropDownload(string file)
+    {
+        TryDelete(file);
+        try { Directory.Delete(Path.GetDirectoryName(file)!); } catch { }
+    }
+
+    internal static async Task DownloadAsync(string url, string file, Action<double> pct, CancellationToken ct)
+    {
+        using var resp = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
         var total = resp.Content.Headers.ContentLength ?? 0;
-        await using var src = await resp.Content.ReadAsStreamAsync(ct);
+        await using var src = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         await using var dst = File.Create(file);
         var buffer = new byte[81920];
-        long got = 0;
+        long got = 0, shown = -1;
         int read;
-        while ((read = await src.ReadAsync(buffer, ct)) > 0)
+        while ((read = await src.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
         {
-            await dst.WriteAsync(buffer.AsMemory(0, read), ct);
+            await dst.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
             got += read;
-            if (total > 0) pct(got * 100.0 / total);
+            if (total > 0 && got * 100 / total != shown) pct(shown = got * 100 / total);
         }
     }
 
-    private static void TryDelete(params string[] targets)
+    internal static void TryDelete(params string[] targets)
     {
         foreach (var target in targets)
         {

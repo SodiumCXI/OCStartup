@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<StepCard> _steps = new()
     {
         new StepCard(Loc.S("L_StepOpenCode")),
+        new StepCard(Loc.S("L_StepOllama")),
         new StepCard(Loc.S("L_StepModels")),
         new StepCard(Loc.S("L_StepConfig")),
     };
@@ -36,7 +37,8 @@ public partial class MainWindow : Window
 
     private List<string> _catalog = new();
     private List<CatalogTag> _tags = new();
-    private string _ollamaSetup = "";
+    private (string Version, string Url)? _ollamaRelease;
+    private readonly SemaphoreSlim _installing = new(1, 1);
     private bool _ollamaNudged;
     private bool _ollamaWasUp;
     private bool _openCodeWasUp;
@@ -118,6 +120,7 @@ public partial class MainWindow : Window
         HarnessRows.ItemsSource = _harnessRows;
         ModelRows.ItemsSource = _modelRows;
         DirBox.Text = _settings.InstallDir;
+        OllamaHost.Folder = _settings.InstallDir;
         WorkBox.Text = _settings.Workspace;
 
         LangList.SelectedIndex = Array.IndexOf(Loc.Codes, Loc.Current);
@@ -192,8 +195,6 @@ public partial class MainWindow : Window
 
     private async Task StartupAsync()
     {
-        OllamaHost.SyncProcessEnv();
-
         if (OllamaHost.IsInstalled() && await Ollama.VersionAsync() is null)
         {
             Log(Loc.F("L_LogOllamaStart", OllamaHost.ModelsDir()));
@@ -204,7 +205,8 @@ public partial class MainWindow : Window
         await RefreshHealthAsync();
         await RefreshModelsAsync();
         ReloadSessions();
-        if (!OpenCode.IsInstalled(_settings.InstallDir)) SetupOverlay.Visibility = Visibility.Visible;
+        if (!OpenCode.IsInstalled(_settings.InstallDir) || !OllamaHost.IsInstalled())
+            SetupOverlay.Visibility = Visibility.Visible;
     }
 
     private async Task PulseAsync()
@@ -258,7 +260,6 @@ public partial class MainWindow : Window
     private async void StartOllama_Click(object sender, RoutedEventArgs e)
     {
         StartOllamaBtn.IsEnabled = false;
-        OllamaHost.SyncProcessEnv();
         OllamaHost.Start(OllamaHost.ModelsDir(), RememberedContext(_settings.LastModel));
         for (var i = 0; i < 20 && await Ollama.VersionAsync() is null; i++) await Task.Delay(500);
         StartOllamaBtn.IsEnabled = true;
@@ -279,7 +280,7 @@ public partial class MainWindow : Window
         var dir = DirBox.Text.Trim();
         var installed = OpenCode.IsInstalled(dir);
         HarnessText.Text = installed ? dir : Loc.S("L_OpenCodeMissing");
-        InstallBtn.Content = Loc.S(installed ? "L_Reinstall" : "L_Install");
+        InstallBtn.Content = Loc.S(installed && present ? "L_Reinstall" : "L_Install");
     }
 
     private async Task RefreshModelsAsync()
@@ -400,8 +401,9 @@ public partial class MainWindow : Window
         LangList.SelectedIndex = Array.IndexOf(Loc.Codes, Loc.Current);
 
         _steps[0].Caption = Loc.S("L_StepOpenCode");
-        _steps[1].Caption = Loc.S("L_StepModels");
-        _steps[2].Caption = Loc.S("L_StepConfig");
+        _steps[1].Caption = Loc.S("L_StepOllama");
+        _steps[2].Caption = Loc.S("L_StepModels");
+        _steps[3].Caption = Loc.S("L_StepConfig");
         _updates.Clear();
         ReloadSessions();
         _ = RefreshHealthAsync();
@@ -476,7 +478,6 @@ public partial class MainWindow : Window
         SetupClose.IsEnabled = false;
         SetupProgress.Visibility = Visibility.Visible;
         foreach (var step in _steps) { step.Done = false; step.Active = false; }
-        LogPanel.Visibility = Visibility.Visible;
         Log(Loc.F("L_LogInstallTo", dir));
 
         var progress = new Progress<InstallReport>(r =>
@@ -485,14 +486,14 @@ public partial class MainWindow : Window
             if (r.Done) _steps[r.Step].Done = true;
             _steps[r.Step].Caption = r.Caption;
 
-            SetupProgress.IsIndeterminate = r.Percent < 0;
+            SetupProgress.Visibility = r.Percent < 0 ? Visibility.Hidden : Visibility.Visible;
             if (r.Percent >= 0) SetupProgress.Value = r.Percent;
             if (r.Log is { } line) Log(line);
         });
 
         try
         {
-            await _opencode.InstallAsync(dir, progress, CancellationToken.None);
+            await OneAtATime(() => _opencode.InstallAsync(dir, progress, CancellationToken.None));
             _settings.InstallDir = dir;
             _settings.Save();
             Log(Loc.S("L_LogDone"));
@@ -502,6 +503,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Log(Loc.F("L_LogInstallFailed", ex.Message));
+            LogPanel.Visibility = Visibility.Visible;
             foreach (var step in _steps) step.Active = false;
         }
         finally
@@ -522,7 +524,17 @@ public partial class MainWindow : Window
     private void CloseUpdates_Click(object sender, RoutedEventArgs e) =>
         UpdatesOverlay.Visibility = Visibility.Collapsed;
 
-    private async void RecheckUpdates_Click(object sender, RoutedEventArgs e) => await CheckUpdatesAsync();
+    private async void RecheckUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_updates.Any(row => row.Busy)) await CheckUpdatesAsync();
+    }
+
+    private async Task OneAtATime(Func<Task> work)
+    {
+        await _installing.WaitAsync();
+        try { await work(); }
+        finally { _installing.Release(); }
+    }
 
     private async Task CheckUpdatesAsync()
     {
@@ -558,8 +570,7 @@ public partial class MainWindow : Window
             opencode.CanUpdate = true;
         }
 
-        var ollamaRelease = await Updates.LatestOllamaAsync();
-        _ollamaSetup = ollamaRelease?.Url ?? "";
+        var ollamaRelease = _ollamaRelease = await Updates.LatestOllamaAsync();
         if (!installedOllama)
         {
             ollama.Available = ollamaRelease?.Version ?? "";
@@ -575,7 +586,7 @@ public partial class MainWindow : Window
         {
             Settle(ollama, ollamaRelease?.Version);
         }
-        if (ollama.CanUpdate && _ollamaSetup.Length == 0)
+        if (ollama.CanUpdate && string.IsNullOrEmpty(ollamaRelease?.Url))
         {
             ollama.CanUpdate = false;
             ollama.State = Loc.S("L_NoInstaller");
@@ -636,34 +647,27 @@ public partial class MainWindow : Window
 
         row.Busy = true;
         var was = row.State;
-        row.State = Loc.S("L_Updating");
+        row.Show(Loc.S("L_Queued"), -1);
+        var dir = DirBox.Text.Trim();
         try
         {
             switch (row.Kind)
             {
                 case "opencode":
-                    LogPanel.Visibility = Visibility.Visible;
-                    UpdateProgress.Visibility = Visibility.Visible;
-                    var dir = DirBox.Text.Trim();
-                    await _opencode.UpdateAsync(dir,
-                        new Progress<double>(percent => UpdateProgress.Value = percent), CancellationToken.None);
-                    UpdateProgress.Visibility = Visibility.Collapsed;
+                    await OneAtATime(() => _opencode.UpdateAsync(dir, row.Show, CancellationToken.None));
                     row.Current = OpenCode.InstalledVersion(dir) ?? row.Current;
-                    row.State = Loc.S("L_Updated");
+                    row.Show(Loc.S("L_Updated"), -1);
                     row.CanUpdate = false;
                     await RefreshHealthAsync();
                     break;
 
                 case "ollama":
-                    UpdateProgress.Visibility = Visibility.Visible;
-                    var progress = new Progress<double>(percent => UpdateProgress.Value = percent);
-                    var file = await Updates.RunOllamaSetupAsync(_ollamaSetup, progress, CancellationToken.None);
-                    UpdateProgress.Visibility = Visibility.Collapsed;
-                    row.State = Loc.S(row.ActionText == Loc.S("L_Install")
-                        ? "L_InstallerRunningInstall"
-                        : "L_InstallerRunningUpdate");
+                    await OneAtATime(() => Updates.InstallOllamaAsync(dir, _ollamaRelease!.Value, row.Show, CancellationToken.None));
+                    row.Current = OllamaHost.InstalledVersion() ?? row.Current;
+                    row.Show(Loc.S("L_Updated"), -1);
                     row.CanUpdate = false;
-                    Log(Loc.F("L_LogOllamaInstaller", file));
+                    await RefreshHealthAsync();
+                    await RefreshModelsAsync();
                     break;
 
                 case "model":
@@ -676,13 +680,13 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            row.State = was;
             Log(Loc.F("L_LogUpdateFailed", ex.Message));
+            row.Current = row.Available = "";
+            row.Show(Loc.F("L_LogUpdateFailed", ex.Message), -1);
         }
         finally
         {
             row.Busy = false;
-            UpdateProgress.Visibility = Visibility.Collapsed;
         }
     }
 

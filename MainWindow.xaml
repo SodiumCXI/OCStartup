@@ -154,8 +154,10 @@
                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{StaticResource Ink}" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding Line}" FontSize="11.5" Margin="0,3,0,0"
+                        <TextBlock Text="{Binding Line}" FontSize="11.5" Margin="0,3,0,0" TextWrapping="Wrap"
                                    Foreground="{StaticResource InkSoft}"/>
+                        <ProgressBar Margin="0,6,0,0" Value="{Binding Percent, Mode=OneWay}"
+                                     Visibility="{Binding Measured, Converter={StaticResource BoolVis}}"/>
                     </StackPanel>
                     <Button Grid.Column="1" Style="{StaticResource PrimaryButton}" Content="{Binding ActionText}"
                             Padding="12,5" Margin="10,0,0,0" VerticalAlignment="Center" Tag="{Binding}"
@@ -488,8 +490,6 @@
                             <Button x:Name="RecheckBtn" Style="{StaticResource GhostButton}"
                                     Content="{DynamicResource L_Recheck}" HorizontalAlignment="Left"
                                     Click="RecheckUpdates_Click"/>
-                            <ProgressBar x:Name="UpdateProgress" Width="220" HorizontalAlignment="Right"
-                                         VerticalAlignment="Center" Visibility="Collapsed"/>
                         </Grid>
 
                         <ScrollViewer VerticalScrollBarVisibility="Auto">

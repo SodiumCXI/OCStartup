@@ -15,7 +15,7 @@
 
 ## 安装
 
-需要 Windows 10/11 x64 和 [Ollama](https://ollama.com/download)。OpenCode 由启动器自行安装。
+需要 Windows 10/11 x64。启动器会把 OpenCode 和 Ollama（不带界面的版本）静默安装到你选择的文件夹。
 
 从 [Releases](../../releases) 下载压缩包，解压后运行 `OCStartup.exe` - 自包含构建，无需 .NET。
 
