@@ -73,6 +73,13 @@ public static class Loc
         ["L_Copy"] = new[] { "Copy", "Скопировать", "复制" },
         ["L_CatalogOllama"] = new[] { "Ollama catalog", "Каталог Ollama", "Ollama 模型库" },
         ["L_Download"] = new[] { "Download", "Скачать", "下载" },
+        ["L_LinkHint"] = new[] { "hf.co/author/model:version", "hf.co/автор/модель:версия", "hf.co/作者/模型:版本" },
+        ["L_LinkBad"] = new[]
+        {
+            "this does not look like a model link",
+            "это не похоже на ссылку на модель",
+            "这看起来不像模型链接",
+        },
         ["L_Versions"] = new[] { "Versions", "Версии", "版本" },
         ["L_Recheck"] = new[] { "Check again", "Проверить снова", "重新检查" },
         ["L_Settings"] = new[] { "Settings", "Настройки", "设置" },

@@ -433,6 +433,23 @@ public static class Catalog
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
 
+    public static string? ParseLink(string text)
+    {
+        const RegexOptions Plain = RegexOptions.IgnoreCase;
+        var link = Regex.Replace(text.Trim(), @"^ollama\s+(run|pull)\s+", "", Plain);
+        var address = Regex.IsMatch(link, @"^https?://", Plain);
+        link = Regex.Replace(link, @"^https?://", "", Plain);
+        link = Regex.Replace(link, @"^(www\.)?(huggingface\.co|hf\.co)/", "hf.co/", Plain);
+        if (address && !link.StartsWith("hf.co/", StringComparison.Ordinal)) return null;
+
+        var file = Regex.Match(link, @"^(hf\.co/[^/]+/[^/:?#]+)/[^?#]*-([^-/?#]+)\.gguf", Plain);
+        link = file.Success
+            ? $"{file.Groups[1].Value}:{file.Groups[2].Value}"
+            : Regex.Replace(link, @"^(hf\.co/[^/]+/[^/:?#]+)(:[^/?#]+)?[/?#].*$", "$1$2");
+
+        return Regex.IsMatch(link, @"^[A-Za-z0-9][A-Za-z0-9_.-]*(/[A-Za-z0-9_.-]+)*(:[A-Za-z0-9_.-]+)?$") ? link : null;
+    }
+
     public static async Task<List<string>> NamesAsync(bool refresh)
     {
         var cache = Paths.In("catalog.json");

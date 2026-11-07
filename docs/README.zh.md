@@ -7,7 +7,7 @@
 
 ![OC Startup](/docs/MainWindow.zh.png)
 
-- 本地模型集中在一个列表里：从 Ollama 模型库下载、删除，查看体积和量化方式。
+- 本地模型集中在一个列表里：从 Ollama 模型库或通过 Hugging Face 链接下载、删除，查看体积和量化方式。
 - 每个模型的设置：给 OpenCode 的上下文窗口、最大回复长度和思考开关，以及 Ollama 自身的参数。
 - 先把模型装入内存并让它回答一个测试问题，通过之后才打开 OpenCode。
 - 模型或 Ollama 出问题时，OpenCode 会关闭并说明原因，而不是让对话卡住。

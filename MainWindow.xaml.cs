@@ -724,7 +724,7 @@ public partial class MainWindow : Window
         if (CatalogList.SelectedItem is not string name)
         {
             TagList.ItemsSource = null;
-            PullBtn.IsEnabled = false;
+            PullBtn.IsEnabled = LinkBox.Text.Trim().Length > 0;
             return;
         }
 
@@ -752,10 +752,21 @@ public partial class MainWindow : Window
 
     private async void Pull_Click(object sender, RoutedEventArgs e)
     {
-        if (TagList.SelectedItem is not CatalogTag tag) return;
+        var link = LinkBox.Text.Trim();
+        var name = link.Length > 0 ? Catalog.ParseLink(link) : (TagList.SelectedItem as CatalogTag)?.Name;
+        if (name is null)
+        {
+            if (link.Length > 0) CatalogCount.Text = Loc.S("L_LinkBad");
+            return;
+        }
+
+        LinkBox.Clear();
         CatalogOverlay.Visibility = Visibility.Collapsed;
-        await PullModelAsync(tag.Name);
+        await PullModelAsync(name, _models.FirstOrDefault(m => m.Name == name));
     }
+
+    private void Link_TextChanged(object sender, TextChangedEventArgs e) =>
+        PullBtn.IsEnabled = LinkBox.Text.Trim().Length > 0 || TagList.SelectedItem is CatalogTag;
 
     private void Pause_Click(object sender, RoutedEventArgs e)
     {

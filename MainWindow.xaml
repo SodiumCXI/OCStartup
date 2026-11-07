@@ -421,8 +421,30 @@
                         </Grid>
 
                         <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">
-                            <Button x:Name="PullBtn" Style="{StaticResource PrimaryButton}" Content="{DynamicResource L_Download}"
-                                    HorizontalAlignment="Right" Click="Pull_Click" IsEnabled="False"/>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="LinkBox" Padding="8,4" VerticalContentAlignment="Center"
+                                     BorderBrush="#11141A" TextChanged="Link_TextChanged"/>
+                            <TextBlock Text="{DynamicResource L_LinkHint}" Margin="10,0,0,0"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource MutedText}">
+                                        <Setter Property="Foreground" Value="{StaticResource InkFaint}"/>
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text.Length, ElementName=LinkBox}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Button x:Name="PullBtn" Grid.Column="1" Style="{StaticResource PrimaryButton}"
+                                    Content="{DynamicResource L_Download}" Margin="10,0,0,0"
+                                    Click="Pull_Click" IsEnabled="False"/>
                         </Grid>
 
                         <Grid>

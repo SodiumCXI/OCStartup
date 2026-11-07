@@ -8,7 +8,7 @@ the launcher configures both programs and opens OpenCode ready to work.
 
 ![OC Startup](/docs/MainWindow.en.png)
 
-- Local models in one list: download from the Ollama library, delete, see size and quantization.
+- Local models in one list: download from the Ollama library or by a Hugging Face link, delete, see size and quantization.
 - Per-model settings: context window, max response and reasoning for OpenCode, plus the Ollama
   parameters themselves.
 - The model is loaded into memory and asked a test question first; OpenCode opens only if it answered.

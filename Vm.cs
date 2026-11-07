@@ -32,7 +32,7 @@ public sealed class ModelCard : Notify
     public ModelCard(string name) => Name = name;
 
     public string Name { get; }
-    public string Short => Name.Contains(':') ? Name[..Name.IndexOf(':')] : Name;
+    public string Short => Name.Split(':')[0].Split('/')[^1];
     public string Tag => Name.Contains(':') ? Name[(Name.IndexOf(':') + 1)..] : "latest";
 
     public string Size { get => _size; set => Set(ref _size, value); }
