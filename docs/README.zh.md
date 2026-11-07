@@ -22,5 +22,5 @@
 ## 构建
 
 ```bash
-dotnet build DshStudio.csproj
+dotnet build OCStartup.csproj
 ```

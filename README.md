@@ -26,5 +26,5 @@ is self-contained, no .NET required.
 ## Build
 
 ```bash
-dotnet build DshStudio.csproj
+dotnet build OCStartup.csproj
 ```

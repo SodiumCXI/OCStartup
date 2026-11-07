@@ -26,5 +26,5 @@
 ## Сборка
 
 ```bash
-dotnet build DshStudio.csproj
+dotnet build OCStartup.csproj
 ```
