@@ -138,9 +138,27 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                <TextBlock Grid.Column="1" Text="{Binding When}" Margin="10,0,0,0" FontSize="11"
+                <TextBlock x:Name="WhenText" Grid.Column="1" Text="{Binding When}" Margin="10,0,0,0" FontSize="11"
                            Foreground="{StaticResource InkFaint}"/>
+                <Button x:Name="DropBtn" Grid.Column="1" Style="{StaticResource DeleteButton}" Tag="{Binding}"
+                        Width="{Binding ActualHeight, RelativeSource={RelativeSource Self}}" Height="Auto" Margin="0,-6,-12,-6"
+                        HorizontalAlignment="Right" Visibility="Collapsed"
+                        ToolTip="{DynamicResource L_DeleteSession}" Click="DeleteSession_Click">
+                    <Button.Resources>
+                        <CornerRadius x:Key="DeleteRadius">5</CornerRadius>
+                    </Button.Resources>
+                </Button>
             </Grid>
+            <DataTemplate.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True"/>
+                        <Condition Binding="{Binding IsNew}" Value="False"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter TargetName="WhenText" Property="Visibility" Value="Hidden"/>
+                    <Setter TargetName="DropBtn" Property="Visibility" Value="Visible"/>
+                </MultiDataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type local:UpdateRow}">

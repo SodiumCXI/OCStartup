@@ -1311,6 +1311,38 @@ public static class OpenCodeSessions
         return rows;
     }
 
+    public static void Delete(string id, string? database = null)
+    {
+        using var db = new Microsoft.Data.Sqlite.SqliteConnection(
+            $"Data Source={database ?? Database};Pooling=False;Foreign Keys=True");
+        db.Open();
+        using var transaction = db.BeginTransaction();
+
+        var family = new List<string>();
+        using (var select = db.CreateCommand())
+        {
+            select.CommandText =
+                "with recursive tree(id) as (select $id union " +
+                "select s.id from session s join tree on s.parent_id = tree.id) select id from tree";
+            select.Parameters.AddWithValue("$id", id);
+            using var reader = select.ExecuteReader();
+            while (reader.Read()) family.Add(reader.GetString(0));
+        }
+
+        foreach (var member in family)
+        {
+            using var remove = db.CreateCommand();
+            remove.CommandText = "delete from event_sequence where aggregate_id = $id; delete from session where id = $id";
+            remove.Parameters.AddWithValue("$id", member);
+            remove.ExecuteNonQuery();
+        }
+        transaction.Commit();
+
+        foreach (var member in family)
+            OpenCode.TryDelete(Path.Combine(Path.GetDirectoryName(database ?? Database)!,
+                                            "storage", "session_diff", member + ".json"));
+    }
+
     private static string Normalize(string directory) =>
         directory.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
 }

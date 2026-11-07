@@ -74,6 +74,19 @@ public static class Loc
         ["L_CatalogOllama"] = new[] { "Ollama catalog", "Каталог Ollama", "Ollama 模型库" },
         ["L_Download"] = new[] { "Download", "Скачать", "下载" },
         ["L_LinkHint"] = new[] { "hf.co/author/model:version", "hf.co/автор/модель:версия", "hf.co/作者/模型:版本" },
+        ["L_DeleteSession"] = new[] { "Delete session", "Удалить сессию", "删除会话" },
+        ["L_DeleteSessionQuestion"] = new[]
+        {
+            "Delete session \"{0}\"? It cannot be restored.",
+            "Удалить сессию «{0}»? Вернуть её будет нельзя.",
+            "删除会话“{0}”？删除后无法恢复。",
+        },
+        ["L_CloseBeforeDelete"] = new[]
+        {
+            "Close OpenCode first: sessions can only be deleted while it is closed.",
+            "Сначала закройте OpenCode: сессии удаляются только при закрытом приложении.",
+            "请先关闭 OpenCode：只有在其关闭时才能删除会话。",
+        },
         ["L_LinkBad"] = new[]
         {
             "this does not look like a model link",

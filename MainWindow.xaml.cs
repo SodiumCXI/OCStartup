@@ -469,6 +469,29 @@ public partial class MainWindow : Window
         SessionList.SelectedItem = _sessions.FirstOrDefault(s => s.Id == chosen) ?? _sessions[0];
     }
 
+    private async void DeleteSession_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.Tag is not SessionRow session) return;
+        if (OpenCode.Running(DirBox.Text.Trim()))
+        {
+            Refuse(Loc.S("L_CloseBeforeDelete"));
+            return;
+        }
+        if (!await AskAsync(Loc.F("L_DeleteSessionQuestion", session.Name))) return;
+
+        try
+        {
+            OpenCodeSessions.Delete(session.Id);
+            Log(Loc.F("L_LogDeleted", session.Name));
+        }
+        catch (Exception ex)
+        {
+            Log(Loc.F("L_LogDeleteFailed", ex.Message));
+            LogPanel.Visibility = Visibility.Visible;
+        }
+        ReloadSessions();
+    }
+
     private async void Install_Click(object sender, RoutedEventArgs e)
     {
         var dir = DirBox.Text.Trim();

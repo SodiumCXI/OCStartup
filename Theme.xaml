@@ -234,11 +234,12 @@
         </Setter>
     </Style>
 
+    <CornerRadius x:Key="DeleteRadius">8</CornerRadius>
     <Style x:Key="DeleteButton" TargetType="Button" BasedOn="{StaticResource CardButton}">
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" Background="#232A36" CornerRadius="8">
+                    <Border x:Name="Bd" Background="#232A36" CornerRadius="{DynamicResource DeleteRadius}">
                         <Path x:Name="Ico" Data="{StaticResource IcoTrash}" Stroke="{StaticResource InkSoft}"
                               StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                               StrokeLineJoin="Round" Stretch="None" Width="16" Height="16"
