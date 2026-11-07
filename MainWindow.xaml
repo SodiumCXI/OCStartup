@@ -14,7 +14,6 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolVis"/>
 
-        <!-- Карточка модели: рамку и заливку выбора рисует контейнер -->
         <Style x:Key="CardItem" TargetType="ListBoxItem">
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
@@ -106,8 +105,6 @@
             </Grid>
         </DataTemplate>
 
-        <!-- Строка с тумблером: та же высота и то же место, что и у поля ввода,
-             иначе строка выбивается из общего шага -->
         <DataTemplate DataType="{x:Type local:FlagRow}">
             <Grid Margin="0,0,0,3" MinHeight="25">
                 <Grid.ColumnDefinitions>
@@ -179,9 +176,6 @@
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{Binding Short}" FontSize="13.5" FontWeight="SemiBold"
                                Foreground="{StaticResource Ink}" VerticalAlignment="Center">
-                        <!-- Подвинуть название в карточке: Y отрицательный - вверх,
-                             положительный - вниз. Сдвиг только при отрисовке,
-                             разметку не трогает. -->
                         <TextBlock.RenderTransform>
                             <TranslateTransform Y="-1"/>
                         </TextBlock.RenderTransform>
@@ -250,7 +244,6 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Своя строка заголовка: системная светлая сюда не пускается -->
             <Border Grid.Row="0" Background="#12151B" BorderBrush="{StaticResource EdgeSoft}"
                     BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseDown">
                 <Grid>
@@ -386,7 +379,6 @@
                 </Border>
             </Grid>
 
-            <!-- Журнал: выезжает снизу, по умолчанию закрыт -->
             <Border x:Name="LogPanel" Grid.Row="1" VerticalAlignment="Bottom" Height="210" Margin="16,0,16,16"
                     Background="#10131A" CornerRadius="10" BorderBrush="{StaticResource Edge}" BorderThickness="1"
                     Visibility="Collapsed">
@@ -409,7 +401,6 @@
                 </DockPanel>
             </Border>
 
-            <!-- Каталог моделей -->
             <Grid x:Name="CatalogOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
                 <Border Width="760" Height="460" Background="{StaticResource Surface}" CornerRadius="12"
                         BorderBrush="{StaticResource Edge}" BorderThickness="1">
@@ -476,7 +467,6 @@
                 </Border>
             </Grid>
 
-            <!-- Обновления -->
             <Grid x:Name="UpdatesOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
                 <Border Width="620" MaxHeight="520" Background="{StaticResource Surface}" CornerRadius="12"
                         VerticalAlignment="Center" BorderBrush="{StaticResource Edge}" BorderThickness="1"
@@ -509,7 +499,6 @@
                 </Border>
             </Grid>
 
-            <!-- Настройки модели -->
             <Grid x:Name="TuneOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
                 <Border Width="620" MaxHeight="560" Background="{StaticResource Surface}" CornerRadius="12"
                         VerticalAlignment="Center" BorderBrush="{StaticResource Edge}" BorderThickness="1"
@@ -553,7 +542,6 @@
                 </Border>
             </Grid>
 
-            <!-- Установка OpenCode -->
             <Grid x:Name="SetupOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
                 <Border Width="540" Background="{StaticResource Surface}" CornerRadius="12" VerticalAlignment="Center"
                         BorderBrush="{StaticResource Edge}" BorderThickness="1" Padding="20">
@@ -591,7 +579,6 @@
                 </Border>
             </Grid>
 
-            <!-- Запуск: сначала поднимаем модель, и только потом OpenCode -->
             <Grid x:Name="LaunchOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
                 <Border Width="460" Background="{StaticResource Surface}" CornerRadius="12" VerticalAlignment="Center"
                         BorderBrush="{StaticResource Edge}" BorderThickness="1" Padding="20">
@@ -617,7 +604,6 @@
                 </Border>
             </Grid>
 
-            <!-- Подтверждение: своё, потому что системное окно приезжает белым -->
             <Grid x:Name="ConfirmOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed">
                 <Border Width="380" Background="{StaticResource Surface}" CornerRadius="12" VerticalAlignment="Center"
                         BorderBrush="{StaticResource Edge}" BorderThickness="1" Padding="18">
@@ -634,7 +620,6 @@
                 </Border>
             </Grid>
 
-            <!-- Выбор языка -->
             <Grid x:Name="LangOverlay" Grid.RowSpan="2" Background="{StaticResource Scrim}" Visibility="Collapsed"
                   MouseLeftButtonDown="CloseLang_Click">
                 <Border Width="260" Background="{StaticResource Surface}" CornerRadius="12" VerticalAlignment="Center"

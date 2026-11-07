@@ -1,8 +1,4 @@
-﻿# Сборка релиза: один самодостаточный exe, .NET на машине не нужен.
-#
-# Срабатывает, когда релиз опубликован, и кладёт архив прямо в него.
-# Запустить руками тоже можно - тогда архив останется артефактом прогона.
-name: release
+﻿name: release
 
 on:
   release:
@@ -10,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write        # нужно, чтобы дописать файл в релиз
+  contents: write
 
 jobs:
   windows:
@@ -23,7 +19,6 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # Номер версии берём из метки релиза: v1.2.3 -> 1.2.3.
       - name: Версия из метки
         id: version
         shell: pwsh
@@ -34,8 +29,7 @@ jobs:
           "value=$value" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
           "версия: $value"
 
-      # Самодостаточная сборка: рантайм внутри, WPF не обрезается (PublishTrimmed
-      # он не переживает), родные библиотеки упакованы в тот же файл.
+      # WPF не переживает PublishTrimmed.
       - name: Сборка
         shell: pwsh
         run: >
@@ -66,7 +60,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload '${{ github.event.release.tag_name }}' '${{ steps.archive.outputs.name }}' --clobber
 
-      # Ручной прогон релиза не трогает, поэтому архив отдаём артефактом.
       - uses: actions/upload-artifact@v4
         if: github.event_name != 'release'
         with:

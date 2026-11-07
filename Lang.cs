@@ -5,11 +5,6 @@ using System.Windows;
 
 namespace DshStudio;
 
-/// <summary>
-/// Три языка одной таблицей. Строки уезжают в ресурсы приложения, поэтому
-/// разметка берёт их через DynamicResource и переживает смену языка сама;
-/// код зовёт S() и F().
-/// </summary>
 public static class Loc
 {
     /// <summary>Порядок колонок в таблице ниже.</summary>
@@ -39,7 +34,6 @@ public static class Loc
 
     public static string S(string key) => Table.TryGetValue(key, out var row) ? row[_column] : key;
 
-    /// <summary>Все переводы строки: чужое окно может быть на своём языке.</summary>
     public static string[] All(string key) => Table.TryGetValue(key, out var row) ? row : new[] { key };
 
     public static string F(string key, params object?[] args) =>
@@ -47,7 +41,6 @@ public static class Loc
 
     private static readonly Dictionary<string, string[]> Table = new()
     {
-        // --- заголовки и кнопки ---
         ["L_Language"] = new[] { "Language", "Язык", "语言" },
         ["L_Pause"] = new[] { "Pause", "Пауза", "暂停" },
         ["L_Resume"] = new[] { "Resume", "Продолжить", "继续" },
@@ -102,7 +95,6 @@ public static class Loc
         ["L_Delete"] = new[] { "Delete", "Удалить", "删除" },
         ["L_Crash"] = new[] { "Crash", "Сбой", "崩溃" },
 
-        // --- установка ---
         ["L_StepOpenCode"] = new[]
         {
             "OpenCode app from the GitHub release",
@@ -125,12 +117,10 @@ public static class Loc
             "未找到 Windows 版 OpenCode 发行包",
         },
 
-        // --- состояние ---
         ["L_OllamaMissing"] = new[] { "Ollama is not installed", "Ollama не установлена", "未安装 Ollama" },
         ["L_OllamaStopped"] = new[] { "Ollama is not running", "Ollama не запущена", "Ollama 未运行" },
         ["L_OpenCodeMissing"] = new[] { "OpenCode is not installed", "OpenCode не установлен", "未安装 OpenCode" },
 
-        // --- настройки модели ---
         ["L_TuneCtx"] = new[] { "context window", "окно контекста", "上下文窗口" },
         ["L_TuneMax"] = new[] { "max response", "максимум ответа", "最大输出" },
         ["L_TuneReasoning"] = new[] { "reasoning", "рассуждения", "推理" },
@@ -147,7 +137,6 @@ public static class Loc
             "这里显示的是当前生效的值：“模型”为模型自带，“默认”来自 Ollama。只有改动过的内容才会写入模型。",
         },
 
-        // --- обновления ---
         ["L_Checking"] = new[] { "checking...", "проверка...", "检查中…" },
         ["L_NotInstalledOpenCode"] = new[] { "not installed", "не установлен", "未安装" },
         ["L_NotInstalledOllama"] = new[] { "not installed", "не установлена", "未安装" },
@@ -180,7 +169,6 @@ public static class Loc
             "安装程序已启动，请在其窗口中完成更新",
         },
 
-        // --- каталог ---
         ["L_CatalogLoading"] = new[] { "loading the list...", "список загружается...", "正在加载列表…" },
         ["L_CatalogCount"] = new[]
         {
@@ -191,14 +179,12 @@ public static class Loc
         ["L_CatalogFailed"] = new[] { "catalog did not load", "каталог не загрузился", "模型库加载失败" },
         ["L_Loading"] = new[] { "loading...", "загрузка...", "加载中…" },
 
-        // --- закачка ---
         ["L_GB"] = new[] { "GB", "ГБ", "GB" },
         ["L_Preparing"] = new[] { "preparing", "подготовка", "准备中" },
         ["L_PausedAt"] = new[] { "paused - {0:0}%", "на паузе - {0:0}%", "已暂停 - {0:0}%" },
         ["L_PullFailed"] = new[] { "download failed: {0}", "не скачалась: {0}", "下载失败：{0}" },
         ["L_DeleteQuestion"] = new[] { "Delete {0} from disk?", "Удалить {0} с диска?", "从磁盘删除 {0}？" },
 
-        // --- запуск ---
         ["L_CtxChecking"] = new[] { "context window: checking...", "окно контекста уточняется...", "正在获取上下文窗口…" },
         ["L_CtxTokens"] = new[] { "context window {0:N0} tokens", "окно контекста {0:N0} токенов", "上下文窗口 {0:N0} 个 token" },
         ["L_PickModelFirst"] = new[] { "Choose a model first.", "Сначала выберите модель.", "请先选择模型。" },
@@ -224,9 +210,7 @@ public static class Loc
         },
         ["L_Closed"] = new[] { "OpenCode closed.", "OpenCode закрыт.", "OpenCode 已关闭。" },
         ["L_CloseApp"] = new[] { "Close OpenCode", "Закрыть OpenCode", "关闭 OpenCode" },
-        
 
-        // --- журнал ---
         ["L_LogOllamaStart"] = new[]
         {
             "Ollama is not running, starting it with folder {0}",

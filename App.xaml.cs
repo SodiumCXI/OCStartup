@@ -17,8 +17,6 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // Пока OpenCode работает, наше окно спрятано и добраться до него можно
-        // только повторным запуском: второй экземпляр будит первый и уходит.
         _wake = new EventWaitHandle(false, EventResetMode.AutoReset, "OCStartup.wake", out var first);
         if (!first)
         {
@@ -36,8 +34,6 @@ public partial class App : Application
 
         DispatcherUnhandledException += (_, args) =>
         {
-            // Текст сбоя ложится и в файл: модальное окно ничего не расскажет,
-            // если приложение запущено снимком или из скрипта.
             var note = Path.Combine(Path.GetTempPath(), "oc-startup-crash.txt");
             try { File.WriteAllText(note, args.Exception.ToString()); } catch { }
             MessageBox.Show(args.Exception + Environment.NewLine + Environment.NewLine + note,
@@ -48,8 +44,6 @@ public partial class App : Application
         var window = new MainWindow();
         window.Show();
 
-        // --shot <файл> [экран]: разметка XAML разбирается только при запуске,
-        // поэтому проверка, которая правда открывает окно и снимает его.
         var shot = Array.IndexOf(e.Args, "--shot");
         if (shot >= 0 && e.Args.Length > shot + 1)
         {
@@ -61,7 +55,7 @@ public partial class App : Application
 
     private static async Task ShootAsync(MainWindow window, string file, string screen)
     {
-        await Task.Delay(2500);            // дать списку моделей приехать
+        await Task.Delay(2500);
         window.ShowScreen(screen);
         await window.Dispatcher.InvokeAsync(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
         await Task.Delay(screen is "updates" ? 12000 : screen is "catalog" or "tags" or "config" ? 5000 : 400);

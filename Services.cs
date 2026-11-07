@@ -32,7 +32,6 @@ public sealed class Settings
     public string InstallDir { get; set; } = @"C:\OpenCodeStartup";
     public string Workspace { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     public string LastModel { get; set; } = "";
-    /// <summary>Язык интерфейса. Пусто - ещё не выбирали, берём язык системы.</summary>
     public string Lang { get; set; } = "";
     public Dictionary<string, ModelTuning> Models { get; set; } = new();
 
@@ -58,8 +57,6 @@ public sealed class Settings
     {
         try
         {
-            // Пишем рядом и переставляем: выключение посреди записи оставило бы
-            // обрезанный файл, а с ним приложение забывает все настройки.
             var file = Paths.In("settings.json");
             var temp = file + ".tmp";
             File.WriteAllText(temp,
@@ -80,17 +77,11 @@ public sealed record ModelFacts(int Context, string Parameters, IReadOnlyList<st
 public sealed class ModelTuning
 {
     public int? ContextWindow { get; set; }
-    /// <summary>Окно контекста самой модели: чтобы знать его до запуска Ollama.</summary>
     public int? ModelContext { get; set; }
     public int? MaxTokens { get; set; }
-    /// <summary>Рассуждения у модели: OpenCode знает про них только «да» или «нет».</summary>
     public bool? Reasoning { get; set; }
     public Dictionary<string, string> Params { get; set; } = new();
-    /// <summary>
-    /// Параметры, с которыми модель приехала: нужны кнопке «Сбросить». Пусто и
-    /// «ещё не смотрели» - разные вещи: свои правки уходят в саму модель, и
-    /// приняв их за заводские, мы бы уже никогда не вернули её к исходному.
-    /// </summary>
+    /// <summary>null - ещё не смотрели: правки уходят в саму модель, поэтому запоминаем один раз.</summary>
     public string? Shipped { get; set; }
 }
 
@@ -133,12 +124,6 @@ public static class Ollama
 
     public static async Task<int> ContextAsync(string model) => (await FactsAsync(model)).Context;
 
-    /// <summary>
-    /// Прогрев: просим Ollama просто загрузить модель в память - как она это
-    /// делает сама, без наших указаний. Вернёт текст ошибки, если не влезла:
-    /// лучше сказать об этом самим, чем оставить человека наедине с невнятной
-    /// красной строкой в чужом окне.
-    /// </summary>
     public static Task<string?> WarmAsync(string model, CancellationToken ct = default) =>
         AskAsync("/api/generate", new Dictionary<string, object>
         {
@@ -147,11 +132,6 @@ public static class Ollama
             ["stream"] = false,
         }, ct);
 
-    /// <summary>
-    /// Короткий вопрос уже загруженной модели. Загрузиться она может и молча,
-    /// а сломаться на первом же ответе - шаблон, инструменты, нехватка памяти
-    /// под ответ. Лучше это выяснить здесь, чем в чужом окне.
-    /// </summary>
     public static Task<string?> ProbeAsync(string model, CancellationToken ct = default) =>
         AskAsync("/api/chat", new Dictionary<string, object>
         {
@@ -170,7 +150,6 @@ public static class Ollama
             ["keep_alive"] = 0,
         }, default);
 
-    /// <summary>Запрос к Ollama: null - всё хорошо, иначе её же текст ошибки.</summary>
     private static async Task<string?> AskAsync(string path, Dictionary<string, object> body, CancellationToken ct)
     {
         try
@@ -190,7 +169,6 @@ public static class Ollama
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { return Short(ex.Message); }
 
-        // Ollama отдаёт простыню из нескольких строк - человеку хватит первой.
         static string Short(string text) => text.Split('\n')[0].Trim();
     }
 
@@ -218,10 +196,6 @@ public static class Ollama
         catch { return new ModelFacts(32768, "", Array.Empty<string>()); }
     }
 
-    /// <summary>
-    /// Переписывает параметры модели поверх неё самой (from = она же). Слои
-    /// не копируются - рождается только новый манифест, поэтому это дёшево.
-    /// </summary>
     public static async Task CreateAsync(string model, IReadOnlyDictionary<string, string> parameters)
     {
         var body = new Dictionary<string, object>
@@ -234,9 +208,8 @@ public static class Ollama
         using var resp = await Http.PostAsync($"{Base}/api/create",
             new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"), cts.Token);
         resp.EnsureSuccessStatusCode();
-        await resp.Content.ReadAsStringAsync(cts.Token);   // поток ответа дочитываем до конца
+        await resp.Content.ReadAsStringAsync(cts.Token);
 
-        // stop приходит списком, числа - числами: строкой Ollama их не примет.
         static object Typed(string name, string value)
         {
             if (name == "stop") return value.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -258,7 +231,6 @@ public static class Ollama
         (await Http.SendAsync(req, cts.Token)).EnsureSuccessStatusCode();
     }
 
-    /// <summary>Тянет модель, отдавая долю и подпись шага по потоку JSON-строк.</summary>
     public static async Task PullAsync(string model, Action<string, double?> report, CancellationToken ct)
     {
         var req = new HttpRequestMessage(HttpMethod.Post, $"{Base}/api/pull")
@@ -289,11 +261,6 @@ public static class Ollama
     }
 }
 
-/// <summary>
-/// Сама программа Ollama: где лежат её модели и как её перезапустить.
-/// Папку моделей она читает только при старте, поэтому смена пути без
-/// перезапуска ничего не меняет.
-/// </summary>
 public static class OllamaHost
 {
     private static string Programs =>
@@ -304,11 +271,6 @@ public static class OllamaHost
 
     public static bool IsInstalled() => File.Exists(Tray) || File.Exists(Cli);
 
-    /// <summary>
-    /// Версия установленной Ollama. Спрашиваем у самой программы, а не у её
-    /// сервера: когда он не поднят, версия всё равно нужна - иначе выходит,
-    /// что стоит неизвестно что, и любое сравнение с выпуском врёт.
-    /// </summary>
     public static string? InstalledVersion()
     {
         if (!File.Exists(Cli)) return null;
@@ -324,7 +286,6 @@ public static class OllamaHost
                 StandardErrorEncoding = Encoding.UTF8,
             };
             using var p = Process.Start(psi)!;
-            // Без сервера она пишет «client version is X», с ним - «ollama version is X».
             var text = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
             p.WaitForExit(10000);
             var found = Regex.Match(text, @"version is ([0-9][^\s]*)");
@@ -343,12 +304,6 @@ public static class OllamaHost
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ollama", "models");
     }
 
-    /// <summary>
-    /// Кладёт путь из реестра в собственное окружение. Дочерние процессы -
-    /// установщик Ollama и сама Ollama - наследуют переменные от нас, а мы
-    /// от оболочки, которая могла запуститься ещё со старым путём. Именно так
-    /// после обновления Ollama уходила искать модели в прежнюю папку.
-    /// </summary>
     public static void SyncProcessEnv()
     {
         var dir = ModelsDir();
@@ -357,11 +312,6 @@ public static class OllamaHost
             Environment.SetEnvironmentVariable("OLLAMA_MODELS", dir);
     }
 
-    /// <summary>
-    /// Сколько байт модели уже прочитано с диска. О ходе загрузки Ollama не
-    /// сообщает никак, зато счётчик чтения её рабочего процесса растёт ровно
-    /// до размера модели - по нему и видно, сколько из скольки загрузилось.
-    /// </summary>
     public static long LoadedBytes()
     {
         long read = 0;
@@ -401,19 +351,12 @@ public static class OllamaHost
 
     public static int Context { get; private set; }
 
-    /// <summary>
-    /// Поднимаем именно ollama.exe serve: «ollama app.exe» тянет за собой своё
-    /// окно и лезет поверх чужих, а нам нужен только сервер.
-    /// Окно контекста задаётся при запуске: без него Ollama берёт полное окно
-    /// модели, а это десятки гигабайт под буферы и отказ загрузки.
-    /// </summary>
     public static void Start(string modelsDir, int context = 0)
     {
         if (!IsInstalled()) return;
 
-        // Свой вывод Ollama никуда не пишет - её журнал ведёт только приложение
-        // из трея. Заворачиваем вывод в файл через cmd: труба оборвалась бы
-        // вместе с нами, а файл останется её собственным.
+        // Свой вывод Ollama никуда не пишет. Заворачиваем его в файл через cmd:
+        // труба оборвалась бы вместе с нами, а файл останется её собственным.
         var psi = File.Exists(Cli)
             ? new ProcessStartInfo("cmd.exe", $"/c \"\"{Cli}\" serve > \"{OllamaLog.File}\" 2>&1\"")
               { CreateNoWindow = true }
@@ -425,12 +368,7 @@ public static class OllamaHost
         try { Process.Start(psi); } catch { }
     }
 
-    /// <summary>
-    /// Поднять Ollama с нужным окном контекста. Своё умолчание у неё 4096 -
-    /// для работы с инструментами этого мало, поэтому окно модели ей задаём
-    /// сами. Читается оно только при запуске, так что ради другого окна
-    /// Ollama приходится перезапускать.
-    /// </summary>
+    /// <summary>OLLAMA_CONTEXT_LENGTH читается только при старте сервера, своё умолчание у неё 4096.</summary>
     public static async Task UseContextAsync(int context, Action<string> log)
     {
         if (context <= 0 || (IsRunning() && Context == context)) return;
@@ -445,7 +383,6 @@ public static class OllamaHost
         log(Loc.F("L_LogContext", context));
     }
 
-    /// <summary>Переселяет модели в папку установки: на том же диске это переименование.</summary>
     public static async Task UseModelsDirAsync(string target, Action<string> log)
     {
         target = target.TrimEnd('\\');
@@ -458,7 +395,7 @@ public static class OllamaHost
 
         log(Loc.F("L_LogModelsMove", current, target));
         Stop();
-        await Task.Delay(1500);   // дать серверу отпустить файлы
+        await Task.Delay(1500);
 
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         if (Directory.Exists(current) && Directory.Exists(target))
@@ -467,8 +404,6 @@ public static class OllamaHost
             Directory.Move(current, target);
         else if (Directory.Exists(current))
         {
-            // Перенести не смогли - значит и переключать некуда: иначе Ollama
-            // уедет на пустую папку, а модели «пропадут».
             log(Loc.S("L_LogOtherDrive"));
             Start(current, Context);
             return;
@@ -510,7 +445,6 @@ public static class Catalog
         return names;
     }
 
-    /// <summary>Версии модели вместе с весом. latest - не отдельная версия, а пометка.</summary>
     public static async Task<List<CatalogTag>> TagsAsync(string name)
     {
         var tags = new List<CatalogTag>();
@@ -533,7 +467,6 @@ public static class Catalog
         }
         catch { }
 
-        // latest - псевдоним: убираем его из списка и метим ту версию, на которую он указывает.
         if (digests.TryGetValue("latest", out var pointsTo) && pointsTo.Length > 0)
         {
             tags.RemoveAll(t => t.Name.EndsWith(":latest", StringComparison.OrdinalIgnoreCase));
@@ -578,7 +511,6 @@ public static class Updates
         catch { return null; }
     }
 
-    /// <summary>Качает установщик Ollama и запускает его: дальше решает человек.</summary>
     public static async Task<string> RunOllamaSetupAsync(string url, IProgress<double> percent, CancellationToken ct)
     {
         var file = Path.Combine(Path.GetTempPath(), "OllamaSetup.exe");
@@ -619,11 +551,6 @@ public sealed record CatalogTag(string Name, string Size, bool Latest = false, s
     }
 }
 
-/// <summary>
-/// Приложение OpenCode: установка с GitHub, файл настроек и запуск. Своего
-/// сервера у нас нет - его поднимает само приложение, поэтому наша часть это
-/// настройки, переменные окружения и подготовленное окно.
-/// </summary>
 public sealed class OpenCode
 {
     private const string Release = "https://api.github.com/repos/anomalyco/opencode/releases/latest";
@@ -649,10 +576,6 @@ public sealed class OpenCode
 
     public static bool Running(string dir) => Live(dir).Count > 0;
 
-    /// <summary>
-    /// Само окно. У Electron процессов много, и служебные тоже отдают дескриптор,
-    /// поэтому берём то, у которого есть заголовок - настоящее окно одно.
-    /// </summary>
     public static IntPtr Window(string dir)
     {
         foreach (var p in Live(dir))
@@ -677,20 +600,13 @@ public sealed class OpenCode
                 if (string.Equals(p.MainModule?.FileName, exe, StringComparison.OrdinalIgnoreCase)) found.Add(p);
                 else p.Dispose();
             }
-            catch { p.Dispose(); }   // чужой процесс под другим пользователем нам не отвечает
+            catch { p.Dispose(); }
         }
         return found;
     }
 
-    /// <summary>Кому уже сказали работать в полную силу: второй раз не нужно.</summary>
     private static readonly HashSet<int> Awake = new();
 
-    /// <summary>
-    /// Запретить процессам OpenCode работать вполсилы. Windows умеет это
-    /// только для каждого процесса отдельно, общего «не усыплять приложение»
-    /// у неё нет, а Chromium заводит свои процессы по ходу дела - поэтому
-    /// говорим это каждому новому, и ровно один раз.
-    /// </summary>
     public static void KeepAwake(string dir)
     {
         const int PowerThrottlingInfo = 4;
@@ -700,7 +616,7 @@ public sealed class OpenCode
         var live = Live(dir);
         if (live.Count == 0)
         {
-            Awake.Clear();      // приложение закрылось, номера можно забыть
+            Awake.Clear();
             return;
         }
 
@@ -714,8 +630,8 @@ public sealed class OpenCode
                 var full = new PowerThrottling
                 {
                     Version = 1,
-                    ControlMask = ExecutionSpeed,   // скоростью управляем мы...
-                    StateMask = 0,                  // ...и требуем полную
+                    ControlMask = ExecutionSpeed,
+                    StateMask = 0,
                 };
                 SetProcessInformation(handle, PowerThrottlingInfo, ref full, Marshal.SizeOf<PowerThrottling>());
                 CloseHandle(handle);
@@ -790,14 +706,12 @@ public sealed class OpenCode
             new InstallReport(0, pct, Loc.F("L_DownloadingOpenCode", release.Version))), ct);
         report.Report(new InstallReport(0, 100, Loc.F("L_OpenCodeReady", release.Version), Done: true));
 
-        // Модели держим рядом с самим OpenCode, а не в стороннем каталоге.
         var models = Loc.S("L_StepModels");
         report.Report(new InstallReport(1, -1, models));
         await OllamaHost.UseModelsDirAsync(Path.Combine(dir, "models"),
             line => report.Report(new InstallReport(1, -1, models, Log: line)));
         report.Report(new InstallReport(1, 100, models, Done: true));
 
-        // Настройки пишутся перед каждым запуском - здесь только место под них.
         Directory.CreateDirectory(dir);
         report.Report(new InstallReport(2, 100, Loc.S("L_StepConfig"), Done: true));
     }
@@ -809,17 +723,14 @@ public sealed class OpenCode
         await FetchAsync(dir, release, percent.Report, ct);
     }
 
-    /// <summary>
-    /// Установщик OpenCode - обычный NSIS: /S ставит молча, /D задаёт папку и
-    /// обязан идти последним и без кавычек.
-    /// </summary>
+    /// <summary>NSIS: /S ставит молча, /D обязан идти последним и без кавычек.</summary>
     private static async Task FetchAsync(string dir, (string Version, string Url) release,
                                          Action<double> percent, CancellationToken ct)
     {
         var setup = Path.Combine(Path.GetTempPath(), Asset);
         await DownloadAsync(release.Url, setup, percent, ct);
 
-        Quit(dir);                       // работающее приложение установщик не перезапишет
+        Quit(dir);
         await Task.Delay(1000, ct);
 
         var psi = new ProcessStartInfo(setup, $"/S /D={dir.TrimEnd('\\')}")
@@ -834,11 +745,6 @@ public sealed class OpenCode
         TryDelete(setup);
     }
 
-    /// <summary>
-    /// Файл настроек OpenCode. Пишется перед каждым запуском и содержит ровно
-    /// одну модель: всё, что попадёт сюда, можно выбрать прямо в окне OpenCode,
-    /// а запускать модель мимо её настроек нельзя.
-    /// </summary>
     public static void WriteConfig(string dir, OpenCodeModel model)
     {
         var entry = new Dictionary<string, object>
@@ -856,10 +762,10 @@ public sealed class OpenCode
         var config = new Dictionary<string, object>
         {
             ["$schema"] = "https://opencode.ai/config.json",
-            ["autoupdate"] = false,          // обновлениями занимается это приложение
-            ["enabled_providers"] = new[] { "ollama" },   // облачные провайдеры в списке не нужны
+            ["autoupdate"] = false,
+            ["enabled_providers"] = new[] { "ollama" },
             ["model"] = $"ollama/{model.Name}",
-            ["small_model"] = $"ollama/{model.Name}",     // мелкие задачи той же моделью
+            ["small_model"] = $"ollama/{model.Name}",
             ["provider"] = new Dictionary<string, object>
             {
                 ["ollama"] = new Dictionary<string, object>
@@ -882,20 +788,12 @@ public sealed class OpenCode
             new UTF8Encoding(false));
     }
 
-    /// <summary>
-    /// Запуск приложения в выбранном проекте. Возвращает управление сразу:
-    /// открыть нужную вкладку - дело фоновое, окну запуска ждать незачем.
-    /// Флаг доступности нужен нам самим: без него дерево окна пустое и найти
-    /// в нём вкладку невозможно.
-    /// </summary>
     public static bool Launch(string dir, string workspace, string? sessionId, string[] titles, Action<string> log)
     {
         var fresh = !Running(dir);
         if (fresh) OpenCodeDesktop.Prepare(workspace, sessionId);
 
-        // Флаги Chromium, без которых он усыпляет собственные фоновые процессы:
-        // стоит убрать окно OpenCode из виду - и его работа (поток ответа,
-        // вызовы инструментов) встаёт, а модель молча простаивает.
+        // Без этих флагов Chromium усыпляет фоновые процессы, и работа агента встаёт.
         var flags = string.Join(' ',
             "--force-renderer-accessibility",       // нужен нам: по нему находится вкладка
             "--disable-background-timer-throttling",
@@ -950,15 +848,8 @@ public sealed class OpenCode
     }
 }
 
-/// <summary>
-/// Своё окно OpenCode помнит сам: список проектов и открытые вкладки лежат
-/// рядом с ним в файлах Electron. Правим их перед запуском, иначе приложение
-/// откроется на прошлом проекте и без выбранной сессии. Формат чужой, поэтому
-/// любая осечка молча оставляет файлы как были.
-/// </summary>
 public static class OpenCodeDesktop
 {
-    /// <summary>Ключ сервера внутри приложения: у встроенного он всегда такой.</summary>
     private const string Server = "sidecar";
 
     private static string Dir => Path.Combine(
@@ -966,7 +857,7 @@ public static class OpenCodeDesktop
 
     public static void Prepare(string workspace, string? sessionId)
     {
-        if (!Directory.Exists(Dir)) return;   // приложение ещё ни разу не запускали
+        if (!Directory.Exists(Dir)) return;
         try
         {
             AddProject(workspace);
@@ -975,13 +866,6 @@ public static class OpenCodeDesktop
         catch { }
     }
 
-    /// <summary>
-    /// Переход на нужную вкладку. Дерево доступности окна - единственный
-    /// надёжный способ: горячие клавиши приложение видит не всегда, а здесь
-    /// вкладка сама говорит, что она уже отрисована, и сама себя открывает.
-    /// Заголовок задан - ищем вкладку с ним, пусто - берём последнюю: свою мы
-    /// только что дописали в конец.
-    /// </summary>
     public static async Task OpenTabAsync(string dir, string[] titles, Action<string> log)
     {
         if (titles.Length == 0) return;
@@ -999,18 +883,13 @@ public static class OpenCodeDesktop
         catch (Exception ex) { log(ex.Message); }
     }
 
-    /// <summary>
-    /// Нажать свою вкладку. Ищем её по заголовку: приложение при запуске
-    /// возвращает и свои прошлые вкладки, поэтому «последняя в строке» - не
-    /// обязательно наша. Пока вкладки нет, её просто ещё не отрисовали.
-    /// </summary>
     private static bool Click(IntPtr window, string[] titles)
     {
         AutomationElement root;
         try { root = AutomationElement.FromHandle(window); }
         catch { return false; }
 
-        var strip = root.Current.BoundingRectangle.Top + 48;   // полоса вкладок
+        var strip = root.Current.BoundingRectangle.Top + 48;
         AutomationElement? found = null;
         var right = double.MinValue;
 
@@ -1055,8 +934,6 @@ public static class OpenCodeDesktop
         Child(server, "lastProject")["local"] = workspace;
         store["server"] = server.ToJsonString();
 
-        // Тот же проект - выбранным на главной: откроется она - список сессий
-        // будет уже нужной папки.
         var layout = Nested(store, "layout");
         Child(layout, "home")["selection"] = new JsonObject
         {
@@ -1068,7 +945,6 @@ public static class OpenCodeDesktop
         Save(file, store);
     }
 
-    /// <summary>Вкладка выбранной сессии или черновик новой - всегда последней.</summary>
     private static void OpenTab(string workspace, string? sessionId)
     {
         if (Load(Path.Combine(Dir, "opencode.settings"))["windowIds"] is not JsonArray windows) return;
@@ -1094,7 +970,6 @@ public static class OpenCodeDesktop
             }
             else
             {
-                // Пустую вкладку этой же папки заводим одну, а не по штуке на запуск.
                 var draft = tabs.FirstOrDefault(t => (string?)t?["type"] == "draft"
                     && string.Equals((string?)t?["directory"], workspace, StringComparison.OrdinalIgnoreCase));
                 var draftId = (string?)draft?["draftID"] ?? Guid.NewGuid().ToString();
@@ -1146,11 +1021,6 @@ public static class OpenCodeDesktop
                .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
 
-/// <summary>
-/// Вывод Ollama, перенаправленный нами в файл. Её ответ на сбой модели -
-/// «смотрите логи сервера», и вот они: тут лежит настоящая причина вроде
-/// нехватки видеопамяти.
-/// </summary>
 public static class OllamaLog
 {
     public static string File => Paths.In("ollama.log");
@@ -1175,13 +1045,10 @@ public static class OllamaLog
             {
                 var line = lines[i].Trim();
                 if (line.Length == 0) continue;
-                // Служебные строки самой Ollama пересказывают ту же беду своими
-                // словами и тянут за собой пути к файлам - нам нужна причина,
-                // а её пишет llama.cpp своей строкой.
                 if (line.Contains("level=INFO", StringComparison.Ordinal)) continue;
                 if (line.Contains("level=WARN", StringComparison.Ordinal)) continue;
                 if (!Marks.Any(m => line.Contains(m, StringComparison.OrdinalIgnoreCase))) continue;
-                if (Stamp(line) is { } when && DateTime.Now - when > fresh) return null;   // старая беда
+                if (Stamp(line) is { } when && DateTime.Now - when > fresh) return null;
                 return line.Length > 160 ? line[..160] : line;
             }
         }
@@ -1189,7 +1056,6 @@ public static class OllamaLog
         return null;
     }
 
-    /// <summary>Строки Ollama начинаются с её же времени - по нему судим о свежести.</summary>
     private static DateTime? Stamp(string line)
     {
         var found = Regex.Match(line, @"time=(\S+)");
@@ -1197,10 +1063,6 @@ public static class OllamaLog
     }
 }
 
-/// <summary>
-/// Журнал OpenCode. Своих бед он никому не докладывает, но пишет их сюда:
-/// отказ модели посреди работы видно только отсюда.
-/// </summary>
 public static class OpenCodeLog
 {
     private static string LogFile => Path.Combine(
@@ -1209,7 +1071,6 @@ public static class OpenCodeLog
 
     private static long _offset;
 
-    /// <summary>Запомнить конец журнала: всё, что было до запуска, не наше.</summary>
     public static void Mark()
     {
         try { _offset = new FileInfo(LogFile).Length; }
@@ -1222,7 +1083,7 @@ public static class OpenCodeLog
         {
             var info = new FileInfo(LogFile);
             if (!info.Exists) return null;
-            if (info.Length < _offset) _offset = 0;      // журнал начали заново
+            if (info.Length < _offset) _offset = 0;
             if (info.Length == _offset) return null;
 
             using var stream = new FileStream(LogFile, FileMode.Open, FileAccess.Read,
@@ -1238,7 +1099,6 @@ public static class OpenCodeLog
                 var found = Regex.Match(line, "error(?:\\.error)?=\"(.*?)\"");
                 if (!found.Success) continue;
 
-                // Внутри значения переводы строк записаны как \n - берём первую.
                 var trouble = found.Groups[1].Value.Split(new[] { "\\n" }, StringSplitOptions.None)[0].Trim();
                 if (trouble.Length > 0) return trouble;
             }
@@ -1248,10 +1108,6 @@ public static class OpenCodeLog
     }
 }
 
-/// <summary>
-/// Сессии OpenCode лежат в его собственной базе. Читаем их оттуда, чтобы
-/// показать список до запуска сервера: спрашивать API было бы не у кого.
-/// </summary>
 public static class OpenCodeSessions
 {
     private static string Database => Path.Combine(
@@ -1263,8 +1119,6 @@ public static class OpenCodeSessions
         var rows = new List<SessionRow>();
         if (!File.Exists(Database) || string.IsNullOrWhiteSpace(directory)) return rows;
 
-        // Работаем по копии: живую базу держит сам OpenCode, а её журнал WAL
-        // при чтении нужно проигрывать на запись.
         var copy = Path.Combine(Path.GetTempPath(), "oc-startup-sessions.db");
         try
         {
@@ -1299,12 +1153,10 @@ public static class OpenCodeSessions
         return rows;
     }
 
-    /// <summary>В базе каталог записан через прямые косые: D:/temp.</summary>
     private static string Normalize(string directory) =>
         directory.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
 }
 
 public sealed record OpenCodeModel(string Name, int Context, int Output, bool Tools, bool Reasoning);
 
-/// <summary>Шаг установки: номер, доля (-1 - неизвестна), подпись, строка лога.</summary>
 public readonly record struct InstallReport(int Step, double Percent, string Caption, string? Log = null, bool Done = false);

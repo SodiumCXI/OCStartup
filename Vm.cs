@@ -69,11 +69,9 @@ public sealed class ParamRow : Notify
     }
 
     public string Name { get; }
-    /// <summary>Действующее значение до правок: с ним сравнивается введённое.</summary>
     public string Baseline { get; init; } = "";
     public string Origin { get; }
     public bool Touched => _value.Trim() != Baseline.Trim();
-    /// <summary>Своя правка так и подписана - иначе она выглядит заводской.</summary>
     public string Note => Touched ? Loc.S("L_FromMine") : Origin;
 
     public string Value
@@ -83,7 +81,6 @@ public sealed class ParamRow : Notify
     }
 }
 
-/// <summary>Переключатель вместо поля: словом «да» можно написать с ошибкой.</summary>
 public sealed class FlagRow : Notify
 {
     private bool _value;
@@ -96,7 +93,6 @@ public sealed class FlagRow : Notify
     }
 
     public string Name { get; }
-    /// <summary>Умеет ли это сама модель - видно рядом с переключателем.</summary>
     public string Note { get; }
     public bool Baseline { get; init; }
     public bool Value { get => _value; set => Set(ref _value, value); }
@@ -118,7 +114,6 @@ public sealed class UpdateRow : Notify
     }
 
     public string Title { get; }
-    /// <summary>dsh, ollama или model - от этого зависит, как обновлять.</summary>
     public string Kind { get; }
     public string ActionText { get => _action; set => Set(ref _action, value); }
 

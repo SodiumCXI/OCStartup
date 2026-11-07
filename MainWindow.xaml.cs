@@ -48,12 +48,7 @@ public partial class MainWindow : Window
     private FlagRow? _reasonRow;
     private Dictionary<string, string> _shipped = new();
 
-    /// <summary>
-    /// Всё, что у модели вообще можно настроить, и значения Ollama по умолчанию.
-    /// Своих умолчаний модель не сообщает: /api/show отдаёт только то, что она
-    /// переопределила, поэтому остальное берётся отсюда. Пустая строка значит
-    /// «решает сама Ollama» - такое поле уходит в модель только если его заполнить.
-    /// </summary>
+    /// <summary>/api/show отдаёт только то, что модель переопределила, остальное - умолчания Ollama.</summary>
     private static readonly (string Name, string Default)[] OllamaParams =
     {
         ("temperature", "0.8"),
@@ -81,11 +76,6 @@ public partial class MainWindow : Window
         ("use_mlock", "false"),
     };
 
-    /// <summary>
-    /// Окно контекста, с которым пойдёт модель: её собственное, если человек
-    /// не задал своё в настройках. Заодно запоминаем окно модели - оно нужно
-    /// ещё до того, как поднимется Ollama и у неё будет что спросить.
-    /// </summary>
     private int ContextFor(string model, ModelFacts facts)
     {
         var tuning = _settings.Tuning(model);
@@ -108,11 +98,6 @@ public partial class MainWindow : Window
     [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute,
                                                                              ref int value, int size);
 
-    /// <summary>
-    /// Системные переходы окна. Их нужно гасить только на время выхода из
-    /// развёрнутого состояния мышью: иначе окно сначала проигрывает сжатие
-    /// в старое место и лишь потом прыгает под курсор.
-    /// </summary>
     private void Transitions(bool enabled)
     {
         const int DWMWA_TRANSITIONS_FORCEDISABLED = 3;
@@ -138,12 +123,10 @@ public partial class MainWindow : Window
         LangList.SelectedIndex = Array.IndexOf(Loc.Codes, Loc.Current);
         if (_settings.Lang != Loc.Current) { _settings.Lang = Loc.Current; _settings.Save(); }
         WorkBox.LostFocus += (_, _) => ReloadSessions();
-        ReloadSessions();   // список читается из базы, ждать сети незачем
+        ReloadSessions();
 
         SourceInitialized += (_, _) =>
         {
-            // Со своим заголовком окно теряет системные стили, а вместе с ними
-            // анимации сворачивания и разворота. Возвращаем их окну обратно.
             const int GWL_STYLE = -16, WS_CAPTION = 0x00C00000, WS_MINIMIZEBOX = 0x00020000,
                       WS_MAXIMIZEBOX = 0x00010000, WS_THICKFRAME = 0x00040000;
             var hwnd = new WindowInteropHelper(this).Handle;
@@ -157,8 +140,6 @@ public partial class MainWindow : Window
         StateChanged += (_, _) => Root.Padding = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
         Loaded += async (_, _) => await StartupAsync();
 
-        // Состояние Ollama меняется и без нас: её можно закрыть из трея или
-        // снять в диспетчере. Поэтому опрашиваем, а не запоминаем.
         var pulse = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(3),
@@ -169,15 +150,12 @@ public partial class MainWindow : Window
         Closing += (_, _) =>
         {
             pulse.Stop();
-            // Ollama гасим, только если она больше никому не нужна: OpenCode
-            // остаётся работать сам по себе и без модели встанет.
             if (!OpenCode.Running(DirBox.Text.Trim())) OllamaHost.Stop();
             _settings.InstallDir = DirBox.Text.Trim();
             _settings.Save();
         };
     }
 
-    /// <summary>Показать нужный экран - используется снимком окна при проверке.</summary>
     internal void ShowScreen(string screen)
     {
         switch (screen)
@@ -186,11 +164,11 @@ public partial class MainWindow : Window
             case "catalog": OpenCatalog_Click(this, new RoutedEventArgs()); break;
             case "tags": _ = ShowTagsAsync("qwen3.5"); break;
             case "confirm": _ = AskAsync(Loc.F("L_DeleteQuestion", "ornith-1.5:35b")); break;
-            case "pull": _ = PullModelAsync("all-minilm:latest"); break;   // мелкая модель: проверка закачки целиком
+            case "pull": _ = PullModelAsync("all-minilm:latest"); break;
             case "tune": _ = OpenTuneAsync(_models.FirstOrDefault()); break;
             case "log": LogPanel.Visibility = Visibility.Visible; break;
             case "lang": LangOverlay.Visibility = Visibility.Visible; break;
-            case "config": _ = WriteConfigProbeAsync(); break;   // проверка файла настроек OpenCode
+            case "config": _ = WriteConfigProbeAsync(); break;
             case "updates": OpenUpdates_Click(this, new RoutedEventArgs()); break;
             default: SetupOverlay.Visibility = Visibility.Collapsed; break;
         }
@@ -216,7 +194,6 @@ public partial class MainWindow : Window
     {
         OllamaHost.SyncProcessEnv();
 
-        // Ollama нужна всегда, поэтому поднимаем её сами, а не ждём человека.
         if (OllamaHost.IsInstalled() && await Ollama.VersionAsync() is null)
         {
             Log(Loc.F("L_LogOllamaStart", OllamaHost.ModelsDir()));
@@ -230,8 +207,6 @@ public partial class MainWindow : Window
         if (!OpenCode.IsInstalled(_settings.InstallDir)) SetupOverlay.Visibility = Visibility.Visible;
     }
 
-    // --- состояние ---------------------------------------------------------
-
     private async Task PulseAsync()
     {
         if (_pulsing) return;
@@ -244,18 +219,15 @@ public partial class MainWindow : Window
             var dir = DirBox.Text.Trim();
             var opencode = OpenCode.Running(dir);
 
-            // Без Ollama OpenCode всё равно пустой: ушла она - уходит и он.
             if (opencode && !up && _ollamaWasUp)
             {
                 Log(Loc.S("L_LogOllamaGone"));
                 OpenCode.Quit(dir);
                 opencode = false;
                 if (!IsVisible) Reappear();
-                Status(Loc.S("L_OllamaGone"));   // после Reappear: он пишет своё
+                Status(Loc.S("L_OllamaGone"));
             }
 
-            // Модель может отказать и посреди работы - в своём журнале OpenCode
-            // это пишет, а человеку показывает невнятную красную строку.
             if (opencode && OpenCodeLog.Trouble() is { } broke)
             {
                 broke = Detailed(broke);
@@ -316,9 +288,7 @@ public partial class MainWindow : Window
         try { installed = await Ollama.ListAsync(); }
         catch (Exception ex) { Log(Loc.F("L_LogOllamaSilent", ex.Message)); return; }
 
-        // Пустой список при непустой папке моделей значит одно: Ollama запущена
-        // со старым OLLAMA_MODELS и смотрит не туда. Так бывает после её
-        // обновления. Перезапускаем её с нужным путём - один раз за сеанс.
+        // Пустой список при непустой папке моделей: Ollama запущена со старым OLLAMA_MODELS.
         if (installed.Count == 0 && !_ollamaNudged && OllamaHost.HasModels())
         {
             _ollamaNudged = true;
@@ -331,7 +301,6 @@ public partial class MainWindow : Window
             await RefreshHealthAsync();
         }
 
-        // Карточки качающихся моделей переживают обновление списка.
         var busy = _models.Where(m => m.Busy).ToList();
         var selected = (ModelList.SelectedItem as ModelCard)?.Name ?? _settings.LastModel;
 
@@ -371,8 +340,6 @@ public partial class MainWindow : Window
         });
     }
 
-    // --- окно --------------------------------------------------------------
-
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Left) return;
@@ -381,9 +348,6 @@ public partial class MainWindow : Window
         var wasMaximized = WindowState == WindowState.Maximized;
         if (wasMaximized)
         {
-            // Из развёрнутого окно должно выходить под курсором, а не прыгать:
-            // ставим его так, чтобы точка захвата осталась под мышью, и гасим
-            // анимацию сжатия - она бы проигралась в старое место.
             var inside = e.GetPosition(this);
             var ratio = ActualWidth > 0 ? inside.X / ActualWidth : 0.5;
             var onScreen = PresentationSource.FromVisual(this)!.CompositionTarget!
@@ -414,15 +378,12 @@ public partial class MainWindow : Window
         try { Clipboard.SetText(LogBox.Text); } catch { }
     }
 
-    // --- язык --------------------------------------------------------------
-
     private void OpenLang_Click(object sender, RoutedEventArgs e) => LangOverlay.Visibility = Visibility.Visible;
 
     private void CloseLang_Click(object sender, RoutedEventArgs e) => LangOverlay.Visibility = Visibility.Collapsed;
 
     private void LangList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        // Отметка текущего языка при открытии окна - не выбор человека.
         if (LangOverlay.Visibility != Visibility.Visible) return;
         if ((LangList.SelectedItem as ListBoxItem)?.Tag is not string code) return;
 
@@ -441,7 +402,7 @@ public partial class MainWindow : Window
         _steps[0].Caption = Loc.S("L_StepOpenCode");
         _steps[1].Caption = Loc.S("L_StepModels");
         _steps[2].Caption = Loc.S("L_StepConfig");
-        _updates.Clear();          // состояния строк - тоже текст, перечитаются при открытии
+        _updates.Clear();
         ReloadSessions();
         _ = RefreshHealthAsync();
         _ = RefreshModelsAsync();
@@ -453,8 +414,6 @@ public partial class MainWindow : Window
         if (Directory.Exists(start)) dialog.InitialDirectory = start;
         return dialog.ShowDialog() == true ? dialog.FolderName : null;
     }
-
-    // --- подтверждение (своё, чтобы не звать белое системное окно) ----------
 
     private Task<bool> AskAsync(string question, string? action = null)
     {
@@ -477,8 +436,6 @@ public partial class MainWindow : Window
         ConfirmOverlay.Visibility = Visibility.Collapsed;
         _confirm?.TrySetResult(false);
     }
-
-    // --- установка ---------------------------------------------------------
 
     private void OpenSetup_Click(object sender, RoutedEventArgs e) => SetupOverlay.Visibility = Visibility.Visible;
 
@@ -556,8 +513,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // --- обновления --------------------------------------------------------
-
     private async void OpenUpdates_Click(object sender, RoutedEventArgs e)
     {
         UpdatesOverlay.Visibility = Visibility.Visible;
@@ -569,11 +524,6 @@ public partial class MainWindow : Window
 
     private async void RecheckUpdates_Click(object sender, RoutedEventArgs e) => await CheckUpdatesAsync();
 
-    /// <summary>
-    /// dsh сверяется с npm, Ollama - с её выпусками на GitHub, модели - по
-    /// слепку из каталога: тот же тег со временем пересобирают, и номера версии
-    /// у модели нет, только слепок.
-    /// </summary>
     private async Task CheckUpdatesAsync()
     {
         RecheckBtn.IsEnabled = false;
@@ -588,8 +538,6 @@ public partial class MainWindow : Window
             ActionText = Loc.S(installedHere is null ? "L_Install" : "L_Update"),
         };
         var installedOllama = OllamaHost.IsInstalled();
-        // Версия нужна и у остановленной Ollama: иначе «не запущена» попадает
-        // в сравнение с выпуском и выглядит как доступное обновление.
         var ollamaVersion = installedOllama
             ? await Ollama.VersionAsync() ?? OllamaHost.InstalledVersion()
             : null;
@@ -637,8 +585,6 @@ public partial class MainWindow : Window
         try { models = await Ollama.ListAsync(); }
         catch { models = new List<InstalledModel>(); }
 
-        // Каждая модель - своя страница каталога, поэтому спрашиваем их разом:
-        // по очереди проверка десятка моделей тянется полминуты.
         var checks = models.Select(model =>
         {
             var row = new UpdateRow(model.Name, "model");
@@ -709,8 +655,6 @@ public partial class MainWindow : Window
                     break;
 
                 case "ollama":
-                    // Установщик Ollama доводит человек: он спрашивает и сам
-                    // перезапускает службу.
                     UpdateProgress.Visibility = Visibility.Visible;
                     var progress = new Progress<double>(percent => UpdateProgress.Value = percent);
                     var file = await Updates.RunOllamaSetupAsync(_ollamaSetup, progress, CancellationToken.None);
@@ -741,8 +685,6 @@ public partial class MainWindow : Window
             UpdateProgress.Visibility = Visibility.Collapsed;
         }
     }
-
-    // --- каталог -----------------------------------------------------------
 
     private async void OpenCatalog_Click(object sender, RoutedEventArgs e)
     {
@@ -785,7 +727,7 @@ public partial class MainWindow : Window
         TagsTitle.Text = Loc.S("L_Versions") + " · " + name;
         TagList.ItemsSource = new[] { new CatalogTag(Loc.S("L_Loading"), "") };
         var tags = await Catalog.TagsAsync(name);
-        if (CatalogList.SelectedItem as string != name) return;   // успели переключить
+        if (CatalogList.SelectedItem as string != name) return;
 
         _tags = tags;
         TagSearchBox.Clear();
@@ -793,8 +735,6 @@ public partial class MainWindow : Window
         TagList.SelectedIndex = 0;
         PullBtn.IsEnabled = true;
     }
-
-    // --- закачка: пауза, продолжение, отмена -------------------------------
 
     private void TagSearch_TextChanged(object sender, TextChangedEventArgs e)
     {
@@ -833,7 +773,7 @@ public partial class MainWindow : Window
         if (card.Cancellation is { } running)
         {
             card.Paused = false;
-            running.Cancel();   // остальное доделает обработчик обрыва
+            running.Cancel();
             return;
         }
 
@@ -844,11 +784,6 @@ public partial class MainWindow : Window
         DropOrphanBlobs();
     }
 
-    /// <summary>
-    /// Отменённая закачка оставляет за собой уже скачанные слои: манифеста для
-    /// них нет, Ollama их не трогает, а команды для уборки у неё нет. Чистим
-    /// сами и только когда ничего не качается, иначе снесём чужую работу.
-    /// </summary>
     private void DropOrphanBlobs()
     {
         if (_models.Any(m => m.Busy)) return;
@@ -858,9 +793,7 @@ public partial class MainWindow : Window
         var manifests = Path.Combine(root, "manifests");
         if (!Directory.Exists(blobs) || !Directory.Exists(manifests)) return;
 
-        // Сносим всё, на что не ссылается ни один манифест. Если хоть один
-        // манифест не прочитался - уборку отменяем целиком: лучше оставить
-        // мусор, чем снести слой работающей модели.
+        // Непрочитанный манифест отменяет уборку: лучше мусор, чем снести слой работающей модели.
         var referenced = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in Directory.EnumerateFiles(manifests, "*", SearchOption.AllDirectories))
         {
@@ -892,10 +825,6 @@ public partial class MainWindow : Window
         if (freed > 0) Log(Loc.F("L_LogFreed", freed / 1024.0 / 1024));
     }
 
-    /// <summary>
-    /// Пауза - это прерванный запрос: уже скачанные блоки Ollama хранит,
-    /// поэтому продолжение идёт с места обрыва, а не сначала.
-    /// </summary>
     private async Task PullModelAsync(string tag, ModelCard? existing = null)
     {
         var card = existing ?? new ModelCard(tag);
@@ -927,7 +856,6 @@ public partial class MainWindow : Window
         }
         catch (Exception) when (cts.IsCancellationRequested)
         {
-            // Обрыв запроса прилетает разными типами - важно, чего хотел человек.
             card.Busy = false;
             if (card.Cancelled)
             {
@@ -967,8 +895,6 @@ public partial class MainWindow : Window
         await RefreshModelsAsync();
     }
 
-    // --- настройки модели --------------------------------------------------
-
     private void ModelSettings_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as Button)?.Tag is ModelCard card) _ = OpenTuneAsync(card);
@@ -987,15 +913,12 @@ public partial class MainWindow : Window
         var tuning = _settings.Tuning(card.Name);
         if (tuning.Shipped is null)
         {
-            // Запоминаем сразу и насовсем: свои правки уходят в саму модель, и
-            // при следующем взгляде она расскажет про них как про заводские.
             tuning.Shipped = facts.Parameters ?? "";
             _settings.Save();
         }
         _shipped = ParseParams(tuning.Shipped ?? "");
         if (_tuned != card) return;
 
-        // Это поля opencode.json: limit.context, limit.output и признак рассуждений.
         var output = Math.Min(32768, facts.Context);
         _ctxRow = new ParamRow(Loc.S("L_TuneCtx"), Loc.S("L_FromModel"),
             (tuning.ContextWindow ?? facts.Context).ToString()) { Baseline = facts.Context.ToString() };
@@ -1041,26 +964,21 @@ public partial class MainWindow : Window
     {
         if (_tuned is not { } card) return;
         var tuning = _settings.Tuning(card.Name);
-        var was = tuning.Params;   // что лежит в самой модели с прошлого раза
+        var was = tuning.Params;
 
         tuning.ContextWindow = _ctxRow?.Touched == true ? Number(_ctxRow.Value) : null;
         tuning.MaxTokens = _maxRow?.Touched == true ? Number(_maxRow.Value) : null;
         tuning.Reasoning = _reasonRow is { } flag && flag.Value != flag.Baseline ? flag.Value : null;
-        // Пишем только тронутое: гнать в модель весь список умолчаний незачем.
         tuning.Params = _modelRows.Where(r => r.Touched && r.Value.Trim().Length > 0)
                                   .ToDictionary(r => r.Name, r => r.Value.Trim());
         _settings.Save();
         TuneOverlay.Visibility = Visibility.Collapsed;
         _tuned = null;
 
-        // Свои значения кладутся поверх заводских, поэтому очищенное поле
-        // возвращает то, с чем модель приехала.
         var effective = new Dictionary<string, string>(_shipped);
         foreach (var pair in tuning.Params) effective[pair.Key] = pair.Value;
 
-        // Забыть параметр Ollama не умеет: он остаётся в модели навсегда. Всё,
-        // что человек убрал, перебиваем заводским значением, а если модель
-        // такого не привозила - умолчанием самой Ollama.
+        // Забыть параметр Ollama не умеет: убранное перебиваем заводским значением или её умолчанием.
         foreach (var name in was.Keys.Where(k => !effective.ContainsKey(k)))
         {
             var back = OllamaParams.FirstOrDefault(p => p.Name == name).Default;
@@ -1083,7 +1001,6 @@ public partial class MainWindow : Window
             int.TryParse(text?.Trim(), out var value) ? value : null;
     }
 
-    /// <summary>Разбор текста параметров из /api/show: строки вида «имя значение».</summary>
     private static Dictionary<string, string> ParseParams(string text)
     {
         var result = new Dictionary<string, string>();
@@ -1092,13 +1009,10 @@ public partial class MainWindow : Window
             var parts = line.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (parts.Length != 2) continue;
             var value = parts[1].Trim().Trim('"');
-            // stop встречается несколько раз - собираем в одну строку через «|»
             result[parts[0]] = result.TryGetValue(parts[0], out var had) ? $"{had}|{value}" : value;
         }
         return result;
     }
-
-    // --- запуск ------------------------------------------------------------
 
     private async void ModelList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -1123,7 +1037,6 @@ public partial class MainWindow : Window
         if (!OpenCode.IsInstalled(dir)) { SetupOverlay.Visibility = Visibility.Visible; return; }
         if (await Ollama.VersionAsync() is null) { Refuse(Loc.S("L_OllamaDown")); return; }
 
-        // Проект OpenCode берёт из каталога запуска, поэтому папку выбираем тут.
         var work = WorkBox.Text.Trim();
         if (!Directory.Exists(work)) { Refuse(Loc.S("L_ProjectMissing")); return; }
 
@@ -1139,11 +1052,6 @@ public partial class MainWindow : Window
             brandNew ? Loc.All("L_NewSession") : new[] { chosen!.Name });
     }
 
-    /// <summary>
-    /// Запуск по шагам. Сначала поднимаем и проверяем модель и только потом
-    /// открываем OpenCode: с мёртвой моделью он всё равно бесполезен, а
-    /// разбираться в его красных строках человеку неоткуда.
-    /// </summary>
     private async Task LaunchAsync(ModelCard card, string dir, string work, string? sessionId, string[] titles)
     {
         var tune = _settings.Tuning(card.Name);
@@ -1190,7 +1098,7 @@ public partial class MainWindow : Window
             if (await Ollama.ProbeAsync(card.Name, ct) is { } mute) { Failed(3, mute); return; }
 
             Step(4);
-            OpenCodeLog.Mark();          // всё, что было в журнале до нас, не наше
+            OpenCodeLog.Mark();
             var fresh = OpenCode.Launch(dir, work, sessionId, titles, Log);
             Done(4);
 
@@ -1204,7 +1112,7 @@ public partial class MainWindow : Window
         {
             LaunchOverlay.Visibility = Visibility.Collapsed;
             Status(Loc.S("L_LaunchCancelled"));
-            _ = Ollama.UnloadAsync(card.Name);   // память держать незачем
+            _ = Ollama.UnloadAsync(card.Name);
         }
         catch (Exception ex)
         {
@@ -1223,8 +1131,6 @@ public partial class MainWindow : Window
                 _runSteps[i].Done = i < index;
                 _runSteps[i].Active = i == index;
             }
-            // Загрузка модели - самый долгий шаг, поэтому под неё отдана
-            // большая часть полосы, а остальные шаги проходят по краям.
             LaunchProgress.Value = index switch { 0 => 2, 1 => 6, 2 => 10, 3 => 88, _ => 96 };
         }
 
@@ -1245,11 +1151,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Прогрев с показом хода: пока модель читается с диска, счётчик чтения
-    /// рабочего процесса Ollama растёт до её размера - это и есть «сколько из
-    /// скольки». Уже загруженная модель отвечает сразу, и показывать нечего.
-    /// </summary>
     private async Task<string?> WarmAsync(ModelCard card, CancellationToken ct)
     {
         var warm = Ollama.WarmAsync(card.Name, ct);
@@ -1276,7 +1177,7 @@ public partial class MainWindow : Window
     {
         if (_launching is { } launching && !launching.IsCancellationRequested)
         {
-            launching.Cancel();          // отмена сама закроет окно
+            launching.Cancel();
             return;
         }
         LaunchOverlay.Visibility = Visibility.Collapsed;
@@ -1295,25 +1196,21 @@ public partial class MainWindow : Window
         Show();
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Activate();
-        ReloadSessions();          // за время работы сессий могло прибавиться
-        _ = RefreshModelsAsync();  // и моделей могло убавиться
+        ReloadSessions();
+        _ = RefreshModelsAsync();
         Status(Loc.S("L_Closed"));
     }
 
     private void Stop_Click(object sender, RoutedEventArgs e)
     {
         OpenCode.Quit(DirBox.Text.Trim());
-        _ = Ollama.UnloadAsync(_settings.LastModel);   // память держать незачем
+        _ = Ollama.UnloadAsync(_settings.LastModel);
         StopBtn.Visibility = Visibility.Collapsed;
         StartBtn.Visibility = Visibility.Visible;
         ReloadSessions();
         Status(Loc.S("L_Closed"));
     }
 
-    /// <summary>
-    /// К сообщению об отказе добавляем то, что сказала сама Ollama: её ответ
-    /// сводится к «смотрите логи сервера», а логи у нас есть.
-    /// </summary>
     private static string Detailed(string trouble)
     {
         var said = OllamaLog.LastTrouble(TimeSpan.FromMinutes(3));
@@ -1324,10 +1221,6 @@ public partial class MainWindow : Window
 
     private void Status(string text) => Log(text);
 
-    /// <summary>
-    /// Причина, по которой запускать нечего: показываем там же, где идут шаги
-    /// запуска, - человек нажал «Запустить» и ждёт ответа именно оттуда.
-    /// </summary>
     private void Refuse(string text)
     {
         Log(text);

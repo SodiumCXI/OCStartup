@@ -1,8 +1,6 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Палитра. Одна тёмная тема, светлой нет вовсе: любой контрол, который
-         не покрашен явно, в WPF приезжает белым, поэтому кисти заданы всем. -->
     <SolidColorBrush x:Key="Bg"        Color="#0E1014"/>
     <SolidColorBrush x:Key="Surface"   Color="#161921"/>
     <SolidColorBrush x:Key="SurfaceHi" Color="#1D222C"/>
@@ -32,8 +30,6 @@
         <GradientStop Color="#171B23" Offset="1"/>
     </LinearGradientBrush>
 
-    <!-- Иконки контурами, а не шрифтом: Segoe MDL2 на этой машине отдаёт
-         половину глифов пустыми квадратами. Система координат 12 на 12. -->
     <Geometry x:Key="IcoMinimize">M2,8 H14</Geometry>
     <Geometry x:Key="IcoMaximize">M2.6,2.6 H13.4 V13.4 H2.6 Z</Geometry>
     <Geometry x:Key="IcoCheck">M4,8.3 L6.8,11 L12.2,4.8</Geometry>
@@ -170,7 +166,6 @@
         </Setter>
     </Style>
 
-    <!-- Кнопки строки заголовка: квадрат во всю высоту шторки (37 минус кромка) -->
     <Style x:Key="CaptionButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
         <Setter Property="Width" Value="36"/>
         <Setter Property="Height" Value="36"/>
@@ -191,7 +186,6 @@
         </Setter>
     </Style>
 
-    <!-- Закрытие: красным на наведении, но приглушённым -->
     <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
         <Setter Property="Template">
             <Setter.Value>
@@ -217,7 +211,6 @@
         </Setter>
     </Style>
 
-    <!-- Кнопки на карточке модели и в шапках накладок: сплошная плашка -->
     <Style x:Key="CardButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
         <Setter Property="Width" Value="32"/>
         <Setter Property="Height" Value="32"/>
@@ -262,8 +255,6 @@
         </Setter>
     </Style>
 
-    <!-- Маленькая зелёная кнопка в строке заголовка: она про «включить»,
-         а не про то же действие, что оранжевые кнопки запуска модели -->
     <Style x:Key="MiniAccentButton" TargetType="Button">
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Background" Value="{StaticResource GoodFill}"/>
@@ -309,7 +300,6 @@
         </Setter>
     </Style>
 
-    <!-- Подсказки: системная светлая плашка плюс наш почти белый текст = пустота -->
     <Style TargetType="ToolTip">
         <Setter Property="Foreground" Value="{StaticResource Ink}"/>
         <Setter Property="Background" Value="#1D222C"/>
@@ -327,7 +317,6 @@
         </Setter>
     </Style>
 
-    <!-- Галочка: системная приезжает светлой, поэтому своя -->
     <Style TargetType="CheckBox">
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Foreground" Value="{StaticResource Ink}"/>
@@ -444,7 +433,6 @@
         </Setter>
     </Style>
 
-    <!-- Полосы прокрутки: без своего шаблона WPF рисует светлые системные -->
     <Style TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Width" Value="9"/>
