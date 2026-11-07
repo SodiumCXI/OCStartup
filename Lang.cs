@@ -252,6 +252,12 @@ public static class Loc
         },
         ["L_LaunchCancelled"] = new[] { "Start cancelled.", "Запуск отменён.", "启动已取消。" },
         ["L_OllamaSays"] = new[] { "Ollama says: {0}", "Ollama пишет: {0}", "Ollama 提示：{0}" },
+        ["L_LowerContext"] = new[]
+        {
+            "Not enough memory: the context window is {0:N0} tokens, lower it in the model settings.",
+            "Не хватило памяти: окно контекста {0:N0} токенов, уменьшите его в настройках модели.",
+            "内存不足：上下文窗口为 {0:N0} token，请在模型设置中调小。",
+        },
         ["L_ModelBroke"] = new[]
         {
             "The model failed while working: {0}. OpenCode was closed.",
@@ -266,9 +272,9 @@ public static class Loc
         },
         ["L_ModelFailed"] = new[]
         {
-            "The model did not load: {0}. Free up memory or lower the context window in the model settings.",
-            "Модель не загрузилась: {0}. Освободите память или уменьшите окно контекста в настройках модели.",
-            "模型未能加载：{0}。请释放内存，或在模型设置中调小上下文窗口。",
+            "The model did not load: {0}",
+            "Модель не загрузилась: {0}",
+            "模型未能加载：{0}",
         },
         ["L_LogModelFailed"] = new[] { "Model did not load: {0}", "Модель не загрузилась: {0}", "模型未能加载：{0}" },
         ["L_LogContext"] = new[]

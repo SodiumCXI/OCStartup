@@ -1214,10 +1214,17 @@ public partial class MainWindow : Window
     private static string Detailed(string trouble)
     {
         var said = OllamaLog.LastTrouble(TimeSpan.FromMinutes(3));
-        return said is null || trouble.Contains(said, StringComparison.OrdinalIgnoreCase)
-            ? trouble
-            : $"{trouble} - {Loc.F("L_OllamaSays", said)}";
+        if (said is not null && !trouble.Contains(said, StringComparison.OrdinalIgnoreCase))
+            trouble = $"{trouble} - {Loc.F("L_OllamaSays", said)}";
+
+        return OutOfMemory(trouble) && OllamaHost.Context > 0
+            ? $"{trouble} {Loc.F("L_LowerContext", OllamaHost.Context)}"
+            : trouble;
     }
+
+    private static bool OutOfMemory(string text) =>
+        new[] { "bad_alloc", "out of memory", "cudaMalloc", "failed to allocate", "insufficient memory" }
+            .Any(mark => text.Contains(mark, StringComparison.OrdinalIgnoreCase));
 
     private void Status(string text) => Log(text);
 
