@@ -340,12 +340,12 @@ public static class OllamaHost
     [DllImport("kernel32.dll")]
     private static extern bool GetProcessIoCounters(IntPtr process, out IoCounters counters);
 
-    public static bool HasModels()
-    {
-        var manifests = Path.Combine(ModelsDir(), "manifests");
-        return Directory.Exists(manifests) &&
-               Directory.EnumerateFiles(manifests, "*", SearchOption.AllDirectories).Any();
-    }
+    public static bool HasModels() => Manifests().Any();
+
+    public static IEnumerable<string> Manifests() =>
+        !Directory.Exists(ModelsDir()) ? Enumerable.Empty<string>() :
+        Directory.GetDirectories(ModelsDir(), "manifests*")
+                 .SelectMany(dir => Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories));
 
     public static void Stop()
     {

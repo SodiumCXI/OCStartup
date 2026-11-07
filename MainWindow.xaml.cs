@@ -794,12 +794,11 @@ public partial class MainWindow : Window
 
         var root = OllamaHost.ModelsDir();
         var blobs = Path.Combine(root, "blobs");
-        var manifests = Path.Combine(root, "manifests");
-        if (!Directory.Exists(blobs) || !Directory.Exists(manifests)) return;
+        if (!Directory.Exists(blobs)) return;
 
         // Непрочитанный манифест отменяет уборку: лучше мусор, чем снести слой работающей модели.
         var referenced = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in Directory.EnumerateFiles(manifests, "*", SearchOption.AllDirectories))
+        foreach (var file in OllamaHost.Manifests())
         {
             try
             {
