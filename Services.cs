@@ -1082,9 +1082,7 @@ public static class OpenCodeDesktop
 
         var server = Nested(store, "server");
         var projects = Child(server, "projects");
-        if (projects["local"] is not JsonArray local) projects["local"] = local = new JsonArray();
-        if (!local.Any(p => string.Equals((string?)p?["worktree"], workspace, StringComparison.OrdinalIgnoreCase)))
-            local.Add(new JsonObject { ["worktree"] = workspace, ["expanded"] = true });
+        projects["local"] = new JsonArray(new JsonObject { ["worktree"] = workspace, ["expanded"] = true });
         Child(server, "lastProject")["local"] = workspace;
         store["server"] = server.ToJsonString();
 
@@ -1101,50 +1099,37 @@ public static class OpenCodeDesktop
 
     private static void OpenTab(string workspace, string? sessionId)
     {
-        if (Load(Path.Combine(Dir, "opencode.settings"))["windowIds"] is not JsonArray windows) return;
-
-        foreach (var id in windows.Select(w => (string?)w).Where(w => !string.IsNullOrEmpty(w)))
+        var settingsFile = Path.Combine(Dir, "opencode.settings");
+        var settings = Load(settingsFile);
+        if (settings["windowIds"] is JsonArray windows && windows.Count > 1)
         {
-            var file = Path.Combine(Dir, $"opencode.window.{id}.dat");
-            if (!File.Exists(file)) continue;
+            while (windows.Count > 1) windows.RemoveAt(1);
+            Save(settingsFile, settings);
+        }
 
+        // Список windowIds устаревает: окно бывает и не записано в нём, поэтому правим все файлы окон.
+        foreach (var file in Directory.GetFiles(Dir, "opencode.window.*.dat"))
+        {
             var store = Load(file);
             var tabs = store["tabs"] is JsonValue value && value.TryGetValue<string>(out var text)
                        && JsonNode.Parse(text) is JsonArray list ? list : new JsonArray();
 
-            if (!string.IsNullOrEmpty(sessionId))
-            {
-                Drop(tabs, t => (string?)t?["sessionId"] == sessionId);
-                tabs.Add(new JsonObject
-                {
-                    ["type"] = "session",
-                    ["server"] = Server,
-                    ["sessionId"] = sessionId,
-                });
-            }
-            else
-            {
-                var draft = tabs.FirstOrDefault(t => (string?)t?["type"] == "draft"
-                    && string.Equals((string?)t?["directory"], workspace, StringComparison.OrdinalIgnoreCase));
-                var draftId = (string?)draft?["draftID"] ?? Guid.NewGuid().ToString();
-                Drop(tabs, t => (string?)t?["draftID"] == draftId);
-                tabs.Add(new JsonObject
+            var tab = !string.IsNullOrEmpty(sessionId)
+                ? new JsonObject { ["type"] = "session", ["server"] = Server, ["sessionId"] = sessionId }
+                : new JsonObject
                 {
                     ["type"] = "draft",
-                    ["draftID"] = draftId,
+                    ["draftID"] = (string?)tabs.FirstOrDefault(t => (string?)t?["type"] == "draft"
+                        && string.Equals((string?)t?["directory"], workspace, StringComparison.OrdinalIgnoreCase))?["draftID"]
+                        ?? Guid.NewGuid().ToString(),
                     ["server"] = Server,
                     ["directory"] = workspace,
-                });
-            }
+                };
 
-            store["tabs"] = tabs.ToJsonString();
+            store["tabs"] = new JsonArray(tab).ToJsonString();
+            store.Remove("tabs.recent");
+            store.Remove("tabs.closed");
             Save(file, store);
-        }
-
-        static void Drop(JsonArray tabs, Func<JsonNode?, bool> match)
-        {
-            for (var i = tabs.Count - 1; i >= 0; i--)
-                if (match(tabs[i])) tabs.RemoveAt(i);
         }
     }
 
