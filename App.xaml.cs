@@ -7,7 +7,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-namespace DshStudio;
+namespace OCStartup;
 
 public partial class App : Application
 {

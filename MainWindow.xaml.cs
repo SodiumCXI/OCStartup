@@ -14,7 +14,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 
-namespace DshStudio;
+namespace OCStartup;
 
 public partial class MainWindow : Window
 {

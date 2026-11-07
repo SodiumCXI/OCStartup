@@ -15,7 +15,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DshStudio;
+namespace OCStartup;
 
 public static class Paths
 {

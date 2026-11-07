@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <AssemblyName>OCStartup</AssemblyName>
-    <RootNamespace>DshStudio</RootNamespace>
+    <RootNamespace>OCStartup</RootNamespace>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>

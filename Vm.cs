@@ -2,7 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
 
-namespace DshStudio;
+namespace OCStartup;
 
 public abstract class Notify : INotifyPropertyChanged
 {

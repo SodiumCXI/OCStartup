@@ -1,7 +1,7 @@
-﻿<Window x:Class="DshStudio.MainWindow"
+﻿<Window x:Class="OCStartup.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:local="clr-namespace:DshStudio"
+        xmlns:local="clr-namespace:OCStartup"
         Title="OC Startup" Icon="icon.ico" Height="700" Width="1060" MinHeight="560" MinWidth="900"
         WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
         Background="{StaticResource Bg}" UseLayoutRounding="True" SnapsToDevicePixels="True">

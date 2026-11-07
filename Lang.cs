@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Windows;
 
-namespace DshStudio;
+namespace OCStartup;
 
 public static class Loc
 {
