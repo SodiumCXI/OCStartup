@@ -1250,6 +1250,8 @@ public static class OpenCodeLog
             foreach (var line in text.Split('\n'))
             {
                 if (!line.Contains("level=ERROR", StringComparison.Ordinal)) continue;
+                // Без сессии это ошибка самого приложения, а не модели.
+                if (!line.Contains("session.id=", StringComparison.Ordinal)) continue;
                 var found = Regex.Match(line, "error(?:\\.error)?=\"(.*?)\"");
                 if (!found.Success) continue;
 
